@@ -207,7 +207,7 @@ export default function LoginPage() {
           </form>
 
           <div style={{ marginTop: 20, fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
-            VPS India Pvt Ltd · Confidential System
+            © Natobotics {new Date().getFullYear()}. All rights reserved.
           </div>
         </div>
 

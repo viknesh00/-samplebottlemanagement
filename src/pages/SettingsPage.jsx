@@ -8,7 +8,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     orgName:           'VPS India Pvt Ltd',
     labName:           'VPS Analytics Lab',
-    labEmail:          'lab@vps.in',
+    labEmail:          'lab@vpsveritas.com',
     labPhone:          '+91 44 4567 8900',
     labAddress:        'No. 12, Industrial Estate, Chennai - 600 058',
     overdueThreshold:  14,
