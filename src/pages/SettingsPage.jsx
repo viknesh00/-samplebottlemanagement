@@ -6,7 +6,7 @@ const COURIERS = ['BlueDart', 'DTDC', 'Delhivery', 'FedEx', 'DHL', 'Ecom Express
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [form, setForm] = useState({
-    orgName:           'VPS India Pvt Ltd',
+    orgName:           'VPS Veritas',
     labName:           'VPS Analytics Lab',
     labEmail:          'lab@vpsveritas.com',
     labPhone:          '+91 44 4567 8900',

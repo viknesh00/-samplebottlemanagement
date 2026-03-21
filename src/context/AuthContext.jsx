@@ -10,7 +10,7 @@ export const DUMMY_USERS = [
     password: 'admin123',
     avatar: 'VA',
     title: 'Lab Manager',
-    company: 'VPS India Pvt Ltd',
+    company: 'VPS Veritas',
   },
   {
     id: 'U002',
@@ -20,7 +20,7 @@ export const DUMMY_USERS = [
     password: 'staff123',
     avatar: 'DM',
     title: 'Lab Technician',
-    company: 'VPS India Pvt Ltd',
+    company: 'VPS Veritas',
   },
   {
     id: 'C001',
