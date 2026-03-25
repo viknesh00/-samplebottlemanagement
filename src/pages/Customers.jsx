@@ -44,16 +44,16 @@ function CustomerCard({ customer, batches }) {
         <span>✉ {customer.email}</span>
         <span>✆ {customer.phone}</span>
       </div>
-      {customer.gstin && (
+      {customer.vat && (
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-          GSTIN: <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{customer.gstin}</span>
+          VAT: <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{customer.vat}</span>
         </div>
       )}
     </div>
   )
 }
 
-const EMPTY_FORM = { name: '', contact: '', email: '', phone: '', city: '', gstin: '' }
+const EMPTY_FORM = { name: '', contact: '', email: '', phone: '', city: '', vat: '' }
 
 export default function Customers({ customers, setCustomers, batches }) {
   const [modal, setModal] = useState(false)
@@ -75,7 +75,7 @@ export default function Customers({ customers, setCustomers, batches }) {
     ['email',   'Email',          'email'],
     ['phone',   'Phone',          'text'],
     ['city',    'City',           'text'],
-    ['gstin',   'GSTIN',          'text'],
+    ['vat',   'VAT',          'text'],
   ]
 
   return (

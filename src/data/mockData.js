@@ -101,13 +101,13 @@ export const INIT_BATCHES = [
 
 // ── Seed Customers ────────────────────────────────────────────────────────────
 export const INIT_CUSTOMERS = [
-  { id: 'C001', name: 'UK POWER NETWORKS LPN', gstin: '27AABCB0472N1ZI', contact: 'Ramesh Kumar',  email: 'ramesh@bpcl.in',         phone: '+91 98765 43210', city: 'Mumbai',      pendingBottles: 0 },
-  { id: 'C002', name: 'FREEDOM GROUP OF COMPANIES LTD',  gstin: '07AAACI0010N1ZO', contact: 'Priya Sharma',  email: 'priya.s@iocl.com',       phone: '+91 98123 45678', city: 'Delhi',       pendingBottles: 12 },
-  { id: 'C003', name: 'LIGHTSOURCE BP',   gstin: '27AAACH0681Q1ZE', contact: 'Suresh Nair',   email: 'suresh@hpcl.com',        phone: '+91 97654 32101', city: 'Pune',        pendingBottles: 36 },
-  { id: 'C004', name: 'NORTHERN POWERGRID (YORKSHIRE) PLC',      gstin: '20AAACT2809Q1Z0', contact: 'Anita Patel',   email: 'anita.p@tatasteel.com',  phone: '+91 99887 76543', city: 'Jamshedpur',  pendingBottles: 18 },
-  { id: 'C005', name: 'INFINIS ENERGY SERVICES LTD',    gstin: '27AAACR5055K1Z5', contact: 'Vikram Singh',  email: 'vsingh@ril.com',         phone: '+91 90001 23456', city: 'Mumbai',      pendingBottles: 48 },
-  { id: 'C006', name: 'EXXONMOBIL ASIA PACIFIC PTE LTD',    gstin: '07AAACN0013R1Z7', contact: 'Deepa Rao',     email: 'deepa.rao@ntpc.co.in',   phone: '+91 98456 78901', city: 'Noida',       pendingBottles: 30 },
-]
+  { id: 'C001', name: 'UK POWER NETWORKS LPN', vat: 'GB123456789', contact: 'James Walker',   email: 'james.walker@ukpower.co.uk',        phone: '+44 7700 900123', city: 'London',        pendingBottles: 0 },
+  { id: 'C002', name: 'FREEDOM GROUP OF COMPANIES LTD', vat: 'GB987654321', contact: 'Emily Thompson', email: 'emily.thompson@freedom.co.uk', phone: '+44 7700 900456', city: 'Manchester',    pendingBottles: 12 },
+  { id: 'C003', name: 'LIGHTSOURCE BP', vat: 'GB456789123', contact: 'Oliver Brown',  email: 'oliver.brown@lightsourcebp.co.uk', phone: '+44 7700 900789', city: 'Birmingham',    pendingBottles: 36 },
+  { id: 'C004', name: 'NORTHERN POWERGRID (YORKSHIRE) PLC', vat: 'GB321654987', contact: 'Sophia Wilson', email: 'sophia.wilson@northernpowergrid.co.uk', phone: '+44 7700 901234', city: 'Leeds',         pendingBottles: 18 },
+  { id: 'C005', name: 'INFINIS ENERGY SERVICES LTD', vat: 'GB654987321', contact: 'George Harris', email: 'george.harris@infinis.co.uk', phone: '+44 7700 901567', city: 'Liverpool',     pendingBottles: 48 },
+  { id: 'C006', name: 'EXXONMOBIL ASIA PACIFIC PTE LTD', vat: 'GB789123456', contact: 'Charlotte Evans', email: 'charlotte.evans@exxonmobil.co.uk', phone: '+44 7700 901890', city: 'Edinburgh',     pendingBottles: 30 },
+];
 
 // ── Seed Reports ──────────────────────────────────────────────────────────────
 export const INIT_REPORTS = [
