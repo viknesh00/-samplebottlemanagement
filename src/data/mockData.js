@@ -15,7 +15,7 @@ export const STAGES = [
 export const INIT_BATCHES = [
   {
     id: 'VPS-2024-001',
-    customer: 'Bharat Petroleum',
+    customer: 'UK POWER NETWORKS LPN',
     contact: 'Ramesh Kumar',
     qty: 24,
     stage: 8,
@@ -29,7 +29,7 @@ export const INIT_BATCHES = [
   },
   {
     id: 'VPS-2024-002',
-    customer: 'Indian Oil Corp',
+    customer: 'FREEDOM GROUP OF COMPANIES LTD',
     contact: 'Priya Sharma',
     qty: 12,
     stage: 5,
@@ -43,7 +43,7 @@ export const INIT_BATCHES = [
   },
   {
     id: 'VPS-2024-003',
-    customer: 'HPCL Refinery',
+    customer: 'LIGHTSOURCE BP',
     contact: 'Suresh Nair',
     qty: 36,
     stage: 3,
@@ -57,7 +57,7 @@ export const INIT_BATCHES = [
   },
   {
     id: 'VPS-2024-004',
-    customer: 'Tata Steel',
+    customer: 'NORTHERN POWERGRID (YORKSHIRE) PLC',
     contact: 'Anita Patel',
     qty: 18,
     stage: 1,
@@ -71,7 +71,7 @@ export const INIT_BATCHES = [
   },
   {
     id: 'VPS-2024-005',
-    customer: 'Reliance Ind',
+    customer: 'INFINIS ENERGY SERVICES LTD',
     contact: 'Vikram Singh',
     qty: 48,
     stage: 6,
@@ -85,7 +85,7 @@ export const INIT_BATCHES = [
   },
   {
     id: 'VPS-2024-006',
-    customer: 'NTPC Limited',
+    customer: 'EXXONMOBIL ASIA PACIFIC PTE LTD',
     contact: 'Deepa Rao',
     qty: 30,
     stage: 2,
@@ -101,12 +101,12 @@ export const INIT_BATCHES = [
 
 // ── Seed Customers ────────────────────────────────────────────────────────────
 export const INIT_CUSTOMERS = [
-  { id: 'C001', name: 'Bharat Petroleum', gstin: '27AABCB0472N1ZI', contact: 'Ramesh Kumar',  email: 'ramesh@bpcl.in',         phone: '+91 98765 43210', city: 'Mumbai',      pendingBottles: 0 },
-  { id: 'C002', name: 'Indian Oil Corp',  gstin: '07AAACI0010N1ZO', contact: 'Priya Sharma',  email: 'priya.s@iocl.com',       phone: '+91 98123 45678', city: 'Delhi',       pendingBottles: 12 },
-  { id: 'C003', name: 'HPCL Refinery',   gstin: '27AAACH0681Q1ZE', contact: 'Suresh Nair',   email: 'suresh@hpcl.com',        phone: '+91 97654 32101', city: 'Pune',        pendingBottles: 36 },
-  { id: 'C004', name: 'Tata Steel',      gstin: '20AAACT2809Q1Z0', contact: 'Anita Patel',   email: 'anita.p@tatasteel.com',  phone: '+91 99887 76543', city: 'Jamshedpur',  pendingBottles: 18 },
-  { id: 'C005', name: 'Reliance Ind',    gstin: '27AAACR5055K1Z5', contact: 'Vikram Singh',  email: 'vsingh@ril.com',         phone: '+91 90001 23456', city: 'Mumbai',      pendingBottles: 48 },
-  { id: 'C006', name: 'NTPC Limited',    gstin: '07AAACN0013R1Z7', contact: 'Deepa Rao',     email: 'deepa.rao@ntpc.co.in',   phone: '+91 98456 78901', city: 'Noida',       pendingBottles: 30 },
+  { id: 'C001', name: 'UK POWER NETWORKS LPN', gstin: '27AABCB0472N1ZI', contact: 'Ramesh Kumar',  email: 'ramesh@bpcl.in',         phone: '+91 98765 43210', city: 'Mumbai',      pendingBottles: 0 },
+  { id: 'C002', name: 'FREEDOM GROUP OF COMPANIES LTD',  gstin: '07AAACI0010N1ZO', contact: 'Priya Sharma',  email: 'priya.s@iocl.com',       phone: '+91 98123 45678', city: 'Delhi',       pendingBottles: 12 },
+  { id: 'C003', name: 'LIGHTSOURCE BP',   gstin: '27AAACH0681Q1ZE', contact: 'Suresh Nair',   email: 'suresh@hpcl.com',        phone: '+91 97654 32101', city: 'Pune',        pendingBottles: 36 },
+  { id: 'C004', name: 'NORTHERN POWERGRID (YORKSHIRE) PLC',      gstin: '20AAACT2809Q1Z0', contact: 'Anita Patel',   email: 'anita.p@tatasteel.com',  phone: '+91 99887 76543', city: 'Jamshedpur',  pendingBottles: 18 },
+  { id: 'C005', name: 'INFINIS ENERGY SERVICES LTD',    gstin: '27AAACR5055K1Z5', contact: 'Vikram Singh',  email: 'vsingh@ril.com',         phone: '+91 90001 23456', city: 'Mumbai',      pendingBottles: 48 },
+  { id: 'C006', name: 'EXXONMOBIL ASIA PACIFIC PTE LTD',    gstin: '07AAACN0013R1Z7', contact: 'Deepa Rao',     email: 'deepa.rao@ntpc.co.in',   phone: '+91 98456 78901', city: 'Noida',       pendingBottles: 30 },
 ]
 
 // ── Seed Reports ──────────────────────────────────────────────────────────────
@@ -114,7 +114,7 @@ export const INIT_REPORTS = [
   {
     id: 'RPT-001',
     batchId: 'VPS-2024-001',
-    customer: 'Bharat Petroleum',
+    customer: 'UK POWER NETWORKS LPN',
     testType: 'Transformer Oil Analysis',
     date: '2024-11-28',
     status: 'Issued',
@@ -128,7 +128,7 @@ export const INIT_REPORTS = [
   {
     id: 'RPT-002',
     batchId: 'VPS-2024-005',
-    customer: 'Reliance Ind',
+    customer: 'INFINIS ENERGY SERVICES LTD',
     testType: 'Turbine Oil Analysis',
     date: '2024-11-25',
     status: 'Draft',
@@ -143,10 +143,10 @@ export const INIT_REPORTS = [
 
 // ── Seed Alerts ───────────────────────────────────────────────────────────────
 export const INIT_ALERTS = [
-  { id: 'A1', type: 'wrong-location', severity: 'red',   batch: 'VPS-2024-005', customer: 'Reliance Ind',   msg: 'Samples returned from wrong location (Transformer bottom instead of Turbine Hall B).', age: '3 days' },
-  { id: 'A2', type: 'insufficient',   severity: 'amber', batch: 'VPS-2024-002', customer: 'Indian Oil Corp', msg: 'Insufficient sample quantity returned. Minimum 200ml required, received 120ml.',        age: '1 day' },
-  { id: 'A3', type: 'no-update',      severity: 'amber', batch: 'VPS-2024-003', customer: 'HPCL Refinery',  msg: 'No status update from customer for 5 days. Samples may still be pending.',             age: '5 days' },
-  { id: 'A4', type: 'unacknowledged', severity: 'red',   batch: 'VPS-2024-006', customer: 'NTPC Limited',   msg: 'Bottles dispatched 5 days ago but customer has not acknowledged receipt.',              age: '5 days' },
+  { id: 'A1', type: 'wrong-location', severity: 'red',   batch: 'VPS-2024-005', customer: 'INFINIS ENERGY SERVICES LTD',   msg: 'Samples returned from wrong location (Transformer bottom instead of Turbine Hall B).', age: '3 days' },
+  { id: 'A2', type: 'insufficient',   severity: 'amber', batch: 'VPS-2024-002', customer: 'FREEDOM GROUP OF COMPANIES LTD', msg: 'Insufficient sample quantity returned. Minimum 200ml required, received 120ml.',        age: '1 day' },
+  { id: 'A3', type: 'no-update',      severity: 'amber', batch: 'VPS-2024-003', customer: 'LIGHTSOURCE BP',  msg: 'No status update from customer for 5 days. Samples may still be pending.',             age: '5 days' },
+  { id: 'A4', type: 'unacknowledged', severity: 'red',   batch: 'VPS-2024-006', customer: 'EXXONMOBIL ASIA PACIFIC PTE LTD',   msg: 'Bottles dispatched 5 days ago but customer has not acknowledged receipt.',              age: '5 days' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

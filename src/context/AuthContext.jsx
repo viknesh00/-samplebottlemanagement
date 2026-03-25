@@ -30,8 +30,8 @@ export const DUMMY_USERS = [
     password: 'bpcl123',
     avatar: 'RK',
     title: 'Maintenance Head',
-    company: 'Bharat Petroleum',
-    customerName: 'Bharat Petroleum',
+    company: 'UK POWER NETWORKS LPN',
+    customerName: 'UK POWER NETWORKS LPN',
   },
   {
     id: 'C002',
@@ -41,8 +41,8 @@ export const DUMMY_USERS = [
     password: 'iocl123',
     avatar: 'PS',
     title: 'Plant Engineer',
-    company: 'Indian Oil Corp',
-    customerName: 'Indian Oil Corp',
+    company: 'FREEDOM GROUP OF COMPANIES LTD',
+    customerName: 'FREEDOM GROUP OF COMPANIES LTD',
   },
   {
     id: 'C003',
@@ -52,8 +52,8 @@ export const DUMMY_USERS = [
     password: 'ril123',
     avatar: 'VS',
     title: 'Operations Manager',
-    company: 'Reliance Ind',
-    customerName: 'Reliance Ind',
+    company: 'INFINIS ENERGY SERVICES LTD',
+    customerName: 'INFINIS ENERGY SERVICES LTD',
   },
 ]
 
