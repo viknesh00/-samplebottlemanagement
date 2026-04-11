@@ -1,334 +1,359 @@
-import React, { useState } from 'react'
-import { StepTracker, Modal } from '../components/UI'
+import React, { useState, useMemo } from 'react'
+import { Modal } from '../components/UI'
 import * as Icons from '../components/Icons'
+import { COURIERS, fmtDate, today, uid, bottleStats, BOTTLE_STATUSES } from '../data/mockData'
 
-// ── Customer Issue Report Modal ───────────────────────────────────────────────
-// Shown when customer clicks "Mark Samples Collected" — lets them self-report
-function SampleIssueModal({ batch, onClose, onConfirm }) {
-  const [actualLocation, setActualLocation] = useState('')
-  const [issues, setIssues]                 = useState([])
-  const [note, setNote]                     = useState('')
+// ── Bottle status color map ───────────────────────────────────────────────────
+const STATUS_COLORS = {
+  'Empty':        { bg:'#f3f4f6', color:'#6b7280', border:'#e5e7eb' },
+  'Collected':    { bg:'#eff6ff', color:'#2563eb', border:'#bfdbfe' },
+  'Sent to VPS':  { bg:'#fffbeb', color:'#d97706', border:'#fde68a' },
+  'In Lab':       { bg:'#f5f3ff', color:'#7c3aed', border:'#ddd6fe' },
+  'Tested':       { bg:'#ecfeff', color:'#0891b2', border:'#a5f3fc' },
+  'Report Ready': { bg:'#f0fdf4', color:'#059669', border:'#a7f3d0' },
+}
 
-  const expectedLocation = batch.location || ''
+// ── Collect Bottles Modal (customer marks empty bottles as collected) ──────────
+function CollectModal({ batch, bottles, onClose, onSubmit }) {
+  const emptyBottles = bottles.filter(b => b.batchId === batch.id && b.status === 'Empty')
+  const [selected, setSelected] = useState([])
+  const [locations, setLocations] = useState({})
+  const [globalLoc, setGlobalLoc] = useState('')
 
-  function toggleIssue(issue) {
-    setIssues(p => p.includes(issue) ? p.filter(i => i !== issue) : [...p, issue])
+  function toggle(id) {
+    setSelected(p => p.includes(id) ? p.filter(x => x!==id) : [...p, id])
+  }
+  function setLoc(id, val) { setLocations(p => ({...p, [id]: val})) }
+  function applyGlobal() {
+    if (!globalLoc.trim()) return
+    const newLocs = {}
+    selected.forEach(id => { newLocs[id] = globalLoc })
+    setLocations(p => ({...p, ...newLocs}))
   }
 
-  function handleConfirm() {
-    const allIssues = [...issues]
+  const allHaveLocation = selected.length > 0 && selected.every(id => (locations[id] || '').trim())
 
-    // Auto-flag if they typed a different location
-    if (
-      actualLocation.trim() &&
-      actualLocation.trim().toLowerCase() !== expectedLocation.trim().toLowerCase()
-    ) {
-      allIssues.push(
-        `Wrong location (reported by customer): samples collected from "${actualLocation.trim()}" — expected "${expectedLocation}"`
-      )
-    }
-
-    if (note.trim()) allIssues.push(`Customer note: ${note.trim()}`)
-
-    onConfirm(batch.id, allIssues)
+  function submit() {
+    onSubmit(selected, locations)
     onClose()
   }
 
-  const locationMismatch = actualLocation.trim() &&
-    actualLocation.trim().toLowerCase() !== expectedLocation.trim().toLowerCase()
-
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Confirm Sample Collection"
+    <Modal open onClose={onClose} title={`Mark Bottles as Collected — ${batch.id}`} large
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleConfirm}>
-            Confirm {issues.length > 0 || locationMismatch ? '& Report Issues' : 'Collection'}
+          <button className="btn btn-primary" onClick={submit} disabled={!allHaveLocation}>
+            🧪 Mark {selected.length} Bottle{selected.length!==1?'s':''} Collected
           </button>
         </>
       }
     >
-      {/* Instructions */}
-      <div style={{
-        background: '#ffffff', border: '1px solid #e2e8f0',
-        borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 20,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-          Batch {batch.id} — {batch.qty} Bottles
-        </div>
-        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-          Instructed collection location:{' '}
-          <strong style={{ color: 'var(--text-primary)' }}>
-            {expectedLocation || 'See dispatch note'}
-          </strong>
-        </div>
+      <div className="alert alert-blue" style={{marginBottom:16}}>
+        <Icons.Flask/>
+        <span style={{fontSize:12.5}}>Select the bottles you have collected samples from and enter the collection location for each.</span>
       </div>
 
-      {/* Location confirmation */}
-      <div style={{
-        border: '1px solid #e2e8f0', borderRadius: 'var(--radius)',
-        padding: '14px 16px', marginBottom: 14,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          Where did you collect the samples from?
+      {emptyBottles.length === 0 && (
+        <div style={{textAlign:'center',padding:'32px',color:'var(--text-muted)'}}>
+          <div style={{fontSize:32,marginBottom:8}}>✅</div>
+          <div>All bottles have been collected!</div>
         </div>
-        <input
-          type="text"
-          value={actualLocation}
-          onChange={e => setActualLocation(e.target.value)}
-          placeholder={`Instructed: ${expectedLocation || 'refer to dispatch note'}`}
-          style={{
-            width: '100%',
-            background: locationMismatch ? 'rgba(239,68,68,0.06)' : 'var(--surface)',
-            border: `1px solid ${locationMismatch ? 'var(--red)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius)', padding: '9px 12px', fontSize: 13.5,
-            color: 'var(--text-primary)', outline: 'none',
-          }}
-        />
-        {locationMismatch && (
-          <div style={{
-            marginTop: 8, padding: '8px 12px', background: 'rgba(239,68,68,0.07)',
-            border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8,
-            fontSize: 12.5, color: 'var(--red)', display: 'flex', gap: 6,
-          }}>
-            <span style={{ width: 14, height: 14, flexShrink: 0 }}><Icons.Warn /></span>
-            This differs from the instructed location. VPS Lab will be notified — please also
-            note it on the sample bottles.
+      )}
+
+      {selected.length > 0 && (
+        <div style={{padding:'12px 14px',background:'#faf8f5',borderRadius:'var(--r)',border:'1px solid var(--border)',marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:600,color:'var(--text-muted)',marginBottom:8}}>Same location for all selected?</div>
+          <div style={{display:'flex',gap:8}}>
+            <input type="text" value={globalLoc} onChange={e=>setGlobalLoc(e.target.value)} placeholder="e.g. Transformer Bay A, Cooling Side" style={{flex:1,marginBottom:0}} onKeyDown={e=>{if(e.key==='Enter')applyGlobal()}}/>
+            <button className="btn btn-ghost btn-sm" onClick={applyGlobal}>Apply to All</button>
           </div>
-        )}
-        {actualLocation.trim() && !locationMismatch && (
-          <div style={{
-            marginTop: 8, padding: '8px 12px', background: 'rgba(232,80,10,0.06)',
-            border: '1px solid rgba(232,80,10,0.20)', borderRadius: 8,
-            fontSize: 12.5, color: 'var(--orange)', display: 'flex', gap: 6,
-          }}>
-            ✓ Location matches instructions
-          </div>
-        )}
-      </div>
-
-      {/* Optional issue checkboxes */}
-      <div style={{
-        border: '1px solid #e2e8f0', borderRadius: 'var(--radius)',
-        padding: '14px 16px', marginBottom: 14,
-      }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          Any issues to report? (optional)
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[
-            'Some bottles were already broken or damaged on arrival',
-            'Could not access the specified location — used nearest available point',
-            'Samples may have been contaminated during collection',
-            'Fewer bottles filled than expected — some were unusable',
-            'Collected from correct location but equipment was different type',
-          ].map(issue => (
-            <label key={issue} style={{
-              display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer',
-              padding: '8px 10px', borderRadius: 8,
-              background: issues.includes(issue) ? 'rgba(239,68,68,0.06)' : 'transparent',
-              border: `1px solid ${issues.includes(issue) ? 'rgba(239,68,68,0.25)' : 'var(--border)'}`,
-              transition: 'all .15s',
-            }}>
-              <input
-                type="checkbox"
-                checked={issues.includes(issue)}
-                onChange={() => toggleIssue(issue)}
-                style={{ width: 'auto', marginTop: 2, accentColor: 'var(--red)' }}
-              />
-              <span style={{ fontSize: 13, color: issues.includes(issue) ? 'var(--text-primary)' : 'var(--text-secondary)', lineHeight: 1.4 }}>
-                {issue}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Free-text note */}
-      <div className="form-group">
-        <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          Additional note for VPS Lab (optional)
-        </label>
-        <textarea
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          placeholder="Anything else VPS Lab should know about these samples…"
-          style={{
-            width: '100%', background: '#ffffff', border: '1px solid #e2e8f0',
-            borderRadius: 'var(--radius)', padding: '8px 12px', fontSize: 13.5,
-            color: 'var(--text-primary)', outline: 'none', resize: 'vertical', minHeight: 64, marginTop: 4,
-          }}
-        />
+      <div style={{maxHeight:400,overflowY:'auto',paddingRight:4}}>
+        {emptyBottles.map(bottle => {
+          const isSel = selected.includes(bottle.id)
+          return (
+            <div key={bottle.id} style={{display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',borderRadius:'var(--r)',marginBottom:6,border:`1.5px solid ${isSel?'rgba(212,82,12,0.3)':'var(--border)'}`,background:isSel?'rgba(212,82,12,0.04)':'#fff',cursor:'pointer',transition:'all 0.12s'}} onClick={()=>toggle(bottle.id)}>
+              <input type="checkbox" checked={isSel} onChange={()=>{}} style={{width:'auto',accentColor:'var(--orange)',marginTop:3,flexShrink:0}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:700,marginBottom:isSel?6:0,fontFamily:'var(--font-mono)',color:'var(--orange)'}}>Bottle #{bottle.bottleNum}</div>
+                {isSel && (
+                  <input type="text" value={locations[bottle.id]||''} onChange={e=>{e.stopPropagation();setLoc(bottle.id,e.target.value)}} onClick={e=>e.stopPropagation()} placeholder="Collection location (required)…" style={{marginBottom:0,fontSize:12.5}}/>
+                )}
+              </div>
+              {isSel && <span style={{color:locations[bottle.id]?.trim()?'var(--green)':'var(--amber)',fontSize:16,marginTop:2}}>{ locations[bottle.id]?.trim()?'✓':'!'}</span>}
+            </div>
+          )
+        })}
       </div>
     </Modal>
   )
 }
 
-// ── Main Customer Portal ──────────────────────────────────────────────────────
-export default function CustomerPortal({ batches, setBatches, lockedCustomer = null }) {
-  const allCustomers = [...new Set(batches.map(b => b.customer))]
-  const [selected, setSelected]     = useState(lockedCustomer || allCustomers[0] || '')
-  const [reportingBatch, setReportingBatch] = useState(null)
+// ── Send to VPS Modal (customer ships collected bottles back) ──────────────────
+function SendModal({ batch, bottles, onClose, onSubmit }) {
+  const collectedBottles = bottles.filter(b => b.batchId === batch.id && b.status === 'Collected')
+  const [selected, setSelected] = useState(collectedBottles.map(b=>b.id))
+  const [form, setForm] = useState({ courier:'BlueDart', awb:'', sentDate:today() })
+  const up = (k,v) => setForm(p=>({...p,[k]:v}))
+
+  function submit() {
+    if (!form.awb.trim() || selected.length===0) return
+    onSubmit(selected, form)
+    onClose()
+  }
+
+  return (
+    <Modal open onClose={onClose} title={`Send Bottles to VPS Lab — ${batch.id}`}
+      footer={
+        <>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={submit} disabled={selected.length===0 || !form.awb.trim()}>
+            📦 Send {selected.length} Bottle{selected.length!==1?'s':''} to VPS
+          </button>
+        </>
+      }
+    >
+      <div className="alert alert-orange mb-4">
+        <Icons.Info/>
+        <span style={{fontSize:12.5}}>{collectedBottles.length} collected bottle{collectedBottles.length!==1?'s':''} ready to ship. Deselect any you are not sending yet.</span>
+      </div>
+
+      <div style={{maxHeight:200,overflowY:'auto',marginBottom:16,border:'1px solid var(--border)',borderRadius:'var(--r)',padding:'8px'}}>
+        {collectedBottles.map(b=>(
+          <div key={b.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:'var(--r)',marginBottom:4,background:selected.includes(b.id)?'rgba(212,82,12,0.05)':'#fff',border:`1px solid ${selected.includes(b.id)?'rgba(212,82,12,0.2)':'var(--border)'}`,cursor:'pointer'}} onClick={()=>setSelected(p=>p.includes(b.id)?p.filter(x=>x!==b.id):[...p,b.id])}>
+            <input type="checkbox" checked={selected.includes(b.id)} onChange={()=>{}} style={{width:'auto',accentColor:'var(--orange)'}}/>
+            <span className="mono" style={{fontSize:12,color:'var(--orange)',fontWeight:600}}>Bottle #{b.bottleNum}</span>
+            <span style={{fontSize:11,color:'var(--text-muted)',flex:1}}>{b.location||'—'}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-2">
+        <div className="form-group">
+          <label>Courier</label>
+          <select value={form.courier} onChange={e=>up('courier',e.target.value)}>
+            {COURIERS.map(c=><option key={c}>{c}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>AWB / Tracking Number *</label>
+          <input type="text" value={form.awb} onChange={e=>up('awb',e.target.value)} placeholder="Courier tracking number"/>
+        </div>
+        <div className="form-group">
+          <label>Sent Date</label>
+          <input type="date" value={form.sentDate} onChange={e=>up('sentDate',e.target.value)}/>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Bottle Grid component ─────────────────────────────────────────────────────
+function BottleGrid({ batchId, bottles }) {
+  const bb = bottles.filter(b => b.batchId === batchId)
+  if (!bb.length) return null
+
+  return (
+    <div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(90px, 1fr))',gap:6}}>
+        {bb.map(b => {
+          const sc = STATUS_COLORS[b.status] || STATUS_COLORS['Empty']
+          return (
+            <div key={b.id} title={`Bottle #${b.bottleNum}: ${b.status}${b.location?` — ${b.location}`:''}`} style={{padding:'8px 6px',borderRadius:'var(--r)',background:sc.bg,border:`1.5px solid ${sc.border}`,textAlign:'center',cursor:'default'}}>
+              <div style={{fontSize:10,fontFamily:'var(--font-mono)',color:sc.color,fontWeight:700,marginBottom:3}}>#{b.bottleNum}</div>
+              <div style={{fontSize:9,color:sc.color,fontWeight:600,lineHeight:1.2}}>{b.status}</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Stat chips for a batch ────────────────────────────────────────────────────
+function BatchBottleStats({ batchId, bottles }) {
+  const s = bottleStats(batchId, bottles)
+  const chips = [
+    { label:'Empty',        val:s.empty,       color:'var(--text-secondary)', cls:'chip-gray',    show:s.empty>0 },
+    { label:'Collected',    val:s.collected,   color:'var(--blue)',           cls:'chip-blue',    show:s.collected>0 },
+    { label:'In Transit',   val:s.inTransit,   color:'var(--amber)',          cls:'chip-amber',   show:s.inTransit>0 },
+    { label:'In Lab',       val:s.inLab,       color:'var(--purple)',         cls:'chip-purple',  show:s.inLab>0 },
+    { label:'Tested',       val:s.tested,      color:'var(--teal)',           cls:'chip-teal',    show:s.tested>0 },
+    { label:'Report Ready', val:s.reportReady, color:'var(--green)',          cls:'chip-green',   show:s.reportReady>0 },
+  ].filter(c=>c.show)
+  return (
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:12}}>
+      {chips.map(c=>(
+        <div key={c.label} className={`metric-chip ${c.cls}`}>
+          <div className="metric-chip-dot" />
+          <span className="metric-chip-val">{c.val}</span>
+          <span className="metric-chip-lbl">{c.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Main CustomerPortal ───────────────────────────────────────────────────────
+export default function CustomerPortal({ batches, setBatches, bottles, setBottles, lockedCustomer=null }) {
+  const allCustomers = [...new Set(batches.map(b=>b.customer))]
+  const [selected, setSelected] = useState(lockedCustomer || allCustomers[0] || '')
+  const [collectModal, setCollectModal] = useState(null)
+  const [sendModal, setSendModal] = useState(null)
+  const [expandedBatch, setExpandedBatch] = useState(null)
 
   const activeCustomer = lockedCustomer || selected
-  const myBatches = batches.filter(b => b.customer === activeCustomer)
+  const myBatches = batches.filter(b=>b.customer===activeCustomer)
 
-  // Simple stage advance (stages 1 and 3 don't need a modal)
-  function updateStage(id, stage) {
-    setBatches(p => p.map(b => b.id === id ? { ...b, stage } : b))
+  function acknowledgeReceipt(batchId) {
+    setBatches(p=>p.map(b=>b.id===batchId ? {...b, stage:1, receivedDate:today()} : b))
+    // Create empty bottles for this batch
+    const batch = batches.find(b=>b.id===batchId)
+    if (batch) {
+      const newBottles = Array.from({length:batch.qty}, (_,i)=>({
+        id:`${batchId}-B${String(i+1).padStart(2,'0')}`,
+        batchId, bottleNum:i+1, status:'Empty',
+        location:'', collectedDate:null, sentDate:null,
+        receivedByLabDate:null, testedDate:null,
+        reportId:null, technician:null,
+        viscosity:null, moisture:null, acidity:null,
+        result:null, recommendation:null,
+      }))
+      setBottles(p=>[...newBottles,...p])
+    }
   }
 
-  // Stage 2→3: Samples collected — open issue report modal
-  function openCollectionReport(batch) {
-    setReportingBatch(batch)
+  function handleCollect(bottleIds, locations) {
+    setBottles(p=>p.map(b=>bottleIds.includes(b.id) ? {...b, status:'Collected', location:locations[b.id]||b.location, collectedDate:today()} : b))
   }
 
-  // Called after modal confirms
-  function confirmCollection(id, newIssues) {
-    setBatches(p => p.map(b => {
-      if (b.id !== id) return b
-      return {
-        ...b,
-        stage: 3,
-        issues: [...(b.issues || []), ...newIssues],
-      }
-    }))
+  function handleSend(bottleIds, form, batchId) {
+    setBottles(p=>p.map(b=>bottleIds.includes(b.id) ? {...b, status:'Sent to VPS', sentDate:form.sentDate, courier:form.courier, awb:form.awb} : b))
+    // Also update batch-level return shipment details so Lab inbound shows correct courier/AWB
+    if (batchId) {
+      setBatches(p=>p.map(b=>b.id===batchId ? {...b, returnCourier:form.courier, returnAwb:form.awb, returnSentDate:form.sentDate} : b))
+    }
   }
 
   return (
     <div>
       <div className="mb-6">
         <div className="section-title">Customer Portal</div>
-        <div className="section-sub">
-          {lockedCustomer
-            ? `Your active batches — ${lockedCustomer}`
-            : 'Simulates the customer-facing login view where customers update sample status'}
-        </div>
+        <div className="section-sub">{lockedCustomer ? `Your active batches — ${lockedCustomer}` : 'Simulate customer-facing portal'}</div>
       </div>
 
       {!lockedCustomer && (
-        <div className="alert alert-teal mb-6">
-          <div style={{ width: 16, height: 16, flexShrink: 0 }}><Icons.Customers /></div>
-          <div>
-            Admin view — switch between customers. In production, customers receive a
-            unique login and see only their batches.
-          </div>
+        <div className="alert alert-orange mb-5">
+          <Icons.Info/>
+          <div>Admin view — switch customers below. In production each customer logs in separately.</div>
         </div>
       )}
 
-      {lockedCustomer && (
-        <div className="alert alert-teal mb-6">
-          <div style={{ width: 16, height: 16, flexShrink: 0 }}><Icons.Bottle /></div>
-          <div>
-            Logged in as <strong>{lockedCustomer}</strong>. Update your sample status below —
-            VPS Lab is notified instantly.
-          </div>
-        </div>
-      )}
-
-      {/* Customer switcher — admin/staff only */}
       {!lockedCustomer && (
-        <div className="form-group" style={{ maxWidth: 320, marginBottom: 28 }}>
+        <div className="form-group" style={{maxWidth:340,marginBottom:28}}>
           <label>Viewing as Customer</label>
-          <select value={selected} onChange={e => setSelected(e.target.value)}>
-            {allCustomers.map(c => <option key={c}>{c}</option>)}
+          <select value={selected} onChange={e=>setSelected(e.target.value)}>
+            {allCustomers.map(c=><option key={c}>{c}</option>)}
           </select>
         </div>
       )}
 
-      {!myBatches.length && (
-        <div className="empty-state">
-          <Icons.Bottle />
-          <p>No active batches for {activeCustomer}</p>
-        </div>
+      {myBatches.length===0 && (
+        <div className="card"><div className="empty-state"><Icons.Bottle/><p>No batches for {activeCustomer}</p></div></div>
       )}
 
       {myBatches.map(b => {
+        const s = bottleStats(b.id, bottles)
+        const isExpanded = expandedBatch === b.id
+        const hasEmpty     = s.empty > 0
+        const hasCollected = s.collected > 0
+
         return (
           <div className="card mb-4" key={b.id}>
-            {/* Header */}
-            <div className="flex justify-between items-center mb-3" style={{ flexWrap: 'wrap', gap: 8 }}>
+            {/* Batch header */}
+            <div className="flex justify-between items-start mb-3" style={{flexWrap:'wrap',gap:10}}>
               <div>
-                <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--orange)', marginBottom: 2 }}>{b.id}</div>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>{b.qty} Sample Bottles</div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                  Collection location:{' '}
-                  <strong style={{ color: 'var(--text-secondary)' }}>
-                    {b.location || 'Refer to dispatch note'}
-                  </strong>
-                </div>
+                <div className="mono" style={{fontSize:11,color:'var(--orange)',marginBottom:3,fontWeight:600}}>{b.id}</div>
+                <div style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:17}}>{b.qty} Sample Bottles</div>
+                <div style={{fontSize:12,color:'var(--text-muted)',marginTop:3}}>{b.sampleType} · {b.courier} · {b.awb}</div>
               </div>
-              {b.issues.length > 0 && (
-                <span className="badge badge-red">
-                  {b.issues.length} issue{b.issues.length > 1 ? 's' : ''} flagged
-                </span>
+
+              {b.stage===0 ? (
+                <div style={{padding:'8px 14px',borderRadius:'var(--r)',background:'#fef3c7',border:'1.5px solid #fde68a'}}>
+                  <div style={{fontSize:10,color:'#78350f',fontWeight:700,textTransform:'uppercase',letterSpacing:0.6,marginBottom:2}}>ACTION REQUIRED</div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#b45309'}}>Please acknowledge receipt</div>
+                </div>
+              ) : (
+                <div style={{padding:'8px 14px',borderRadius:'var(--r)',background:'#f0fdf4',border:'1px solid #a7f3d0'}}>
+                  <div style={{fontSize:10,color:'#065f46',fontWeight:700,textTransform:'uppercase',letterSpacing:0.6,marginBottom:2}}>BATCH STATUS</div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#059669'}}>✓ Received {fmtDate(b.receivedDate)}</div>
+                </div>
               )}
             </div>
 
-            {/* Step tracker */}
-            <div className="mb-4">
-              <StepTracker stage={b.stage} />
-            </div>
-
-            {/* Notes */}
-            {b.notes && (
-              <div style={{
-                fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14,
-                padding: '8px 12px', background: '#ffffff',
-                borderRadius: 'var(--radius)', borderLeft: '2px solid var(--border)',
-              }}>
-                📋 {b.notes}
+            {/* Batch-level step (simple 2-step) */}
+            {b.stage === 0 && (
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16,padding:'12px 16px',background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'var(--r)'}}>
+                <div style={{width:32,height:32,borderRadius:'50%',background:'var(--amber)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:14,flexShrink:0}}>1</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:13}}>Bottles dispatched by VPS Lab</div>
+                  <div style={{fontSize:12,color:'var(--text-muted)'}}>{fmtDate(b.dispatched)} · {b.courier} · {b.awb}</div>
+                </div>
+                <div style={{width:40,height:2,background:'var(--border)'}}/>
+                <div style={{width:32,height:32,borderRadius:'50%',background:'var(--border)',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-muted)',fontSize:14,flexShrink:0}}>2</div>
+                <div style={{fontSize:13,color:'var(--text-muted)'}}>Awaiting your confirmation…</div>
               </div>
             )}
 
-            {/* Action buttons — stage-specific */}
-            <div className="flex gap-3 flex-wrap">
-              {b.stage === 1 && (
-                <button className="btn btn-primary" onClick={() => updateStage(b.id, 2)}>
-                  ✓ Acknowledge Receipt
+            {/* Bottle stats (after received) */}
+            {b.stage === 1 && <BatchBottleStats batchId={b.id} bottles={bottles}/>}
+
+            {/* Actions */}
+            <div className="flex gap-3" style={{flexWrap:'wrap',marginBottom:b.stage===1&&s.total>0?12:0}}>
+              {b.stage===0 && (
+                <button className="btn btn-primary" onClick={()=>acknowledgeReceipt(b.id)}>
+                  ✓ Acknowledge Receipt of {b.qty} Bottles
                 </button>
               )}
-
-              {b.stage === 2 && (
-                <>
-                  <button className="btn btn-primary" onClick={() => openCollectionReport(b)}>
-                    ✓ Mark Samples Collected
-                  </button>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', alignSelf: 'center' }}>
-                    You'll be asked to confirm the collection location
-                  </div>
-                </>
-              )}
-
-              {b.stage === 3 && (
-                <button className="btn btn-primary" onClick={() => updateStage(b.id, 4)}>
-                  ✓ Dispatch Samples Back to VPS
+              {b.stage===1 && hasEmpty && (
+                <button className="btn btn-primary" onClick={()=>setCollectModal(b)}>
+                  🧪 Mark Bottles as Collected ({s.empty} empty)
                 </button>
               )}
-
-              {b.stage === 0 && (
-                <span className="badge badge-gray" style={{ padding: '8px 14px' }}>
-                  Awaiting dispatch from VPS Lab
-                </span>
+              {b.stage===1 && hasCollected && (
+                <button className="btn btn-ghost" style={{borderColor:'var(--amber)',color:'#b45309'}} onClick={()=>setSendModal(b)}>
+                  📦 Send to VPS Lab ({s.collected} ready)
+                </button>
               )}
-
-              {b.stage >= 4 && (
-                <span className="badge badge-teal" style={{ padding: '8px 14px' }}>
-                  ✓ Samples returned to VPS Lab
+              {b.stage===1 && s.reportReady>0 && (
+                <span className="badge badge-green" style={{padding:'8px 14px',fontSize:13}}>
+                  ✓ {s.reportReady} Report{s.reportReady!==1?'s':''} Ready
                 </span>
               )}
             </div>
 
-            {/* Show existing issues */}
-            {b.issues.length > 0 && (
-              <div style={{ marginTop: 14 }}>
-                {b.issues.map((issue, i) => (
-                  <div key={i} className="alert alert-red" style={{ marginBottom: 6 }}>
-                    <div style={{ width: 14, height: 14, flexShrink: 0 }}><Icons.Warn /></div>
-                    <div style={{ fontSize: 12.5 }}>{issue}</div>
+            {/* Expandable bottle grid */}
+            {b.stage===1 && s.total>0 && (
+              <>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={()=>setExpandedBatch(isExpanded?null:b.id)}
+                  style={{marginBottom:isExpanded?12:0}}
+                >
+                  {isExpanded?'▲ Hide':'▼ Show'} all {s.total} bottles
+                </button>
+                {isExpanded && <BottleGrid batchId={b.id} bottles={bottles}/>}
+              </>
+            )}
+
+            {b.issues?.length>0 && (
+              <div style={{marginTop:12}}>
+                {b.issues.map((iss,i)=>(
+                  <div key={i} className="alert alert-red" style={{marginBottom:6}}>
+                    <Icons.Warn/><span style={{fontSize:12.5}}>{iss}</span>
                   </div>
                 ))}
               </div>
@@ -337,13 +362,11 @@ export default function CustomerPortal({ batches, setBatches, lockedCustomer = n
         )
       })}
 
-      {/* Sample Collection Report Modal */}
-      {reportingBatch && (
-        <SampleIssueModal
-          batch={reportingBatch}
-          onClose={() => setReportingBatch(null)}
-          onConfirm={confirmCollection}
-        />
+      {collectModal && (
+        <CollectModal batch={collectModal} bottles={bottles} onClose={()=>setCollectModal(null)} onSubmit={handleCollect}/>
+      )}
+      {sendModal && (
+        <SendModal batch={sendModal} bottles={bottles} onClose={()=>setSendModal(null)} onSubmit={(ids,form)=>handleSend(ids,form,sendModal.id)}/>
       )}
     </div>
   )

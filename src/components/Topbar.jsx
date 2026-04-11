@@ -1,89 +1,95 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import * as Icons from './Icons'
-import { useAuth } from '../context/AuthContext'
 
-const PAGE_META = {
-  '/':             { title: 'Dashboard',            crumb: 'Overview' },
-  '/batches':      { title: 'Batch Management',     crumb: 'Operations' },
-  '/dispatch':     { title: 'Dispatch & Logistics', crumb: 'Operations' },
-  '/lab':          { title: 'Lab Processing',        crumb: 'Operations' },
-  '/reports':      { title: 'Test Reports',          crumb: 'Operations' },
-  '/customers':    { title: 'Customers',             crumb: 'Management' },
-  '/portal':       { title: 'Customer Portal',       crumb: 'Management' },
-  '/alerts':       { title: 'Alerts & Follow-ups',  crumb: 'Management' },
-  '/settings':     { title: 'Settings',              crumb: 'System' },
-  '/unauthorized': { title: 'Access Denied',         crumb: '' },
+const ROUTE_META = {
+  '/':          { title: 'Operations Dashboard', crumb: 'VPS LabTrack › Overview' },
+  '/batches':   { title: 'Batch Management',     crumb: 'VPS LabTrack › Operations' },
+  '/lab':       { title: 'Lab Processing',        crumb: 'VPS LabTrack › Operations' },
+  '/reports':   { title: 'Lab Reports',           crumb: 'VPS LabTrack › Operations' },
+  '/customers': { title: 'Customers',             crumb: 'VPS LabTrack › Management' },
+  '/portal':    { title: 'Customer Portal',       crumb: 'VPS LabTrack › Management' },
+  '/alerts':    { title: 'System Alerts',         crumb: 'VPS LabTrack › Management' },
+  '/settings':  { title: 'Settings',              crumb: 'VPS LabTrack › System'     },
 }
 
-export default function Topbar({ activeBatches = 0, alertCount = 0 }) {
-  const { pathname } = useLocation()
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const { title, crumb } = PAGE_META[pathname] || { title: 'VPS LabTrack', crumb: '' }
-
-  const isCustomer = user?.role === 'customer'
+export default function Topbar({ activeBatches, alertCount, totalInTransit, totalInLab }) {
+  const location = useLocation()
+  const navigate  = useNavigate()
+  const meta = ROUTE_META[location.pathname] || { title: 'VPS LabTrack', crumb: 'VPS LabTrack' }
+  const [bellHover, setBellHover] = useState(false)
 
   return (
     <div className="topbar">
-      <div>
-        <div className="page-title">{title}</div>
-        <div className="page-breadcrumb">
-          VPS LabTrack {crumb ? `› ${crumb}` : ''}
-          {isCustomer && (
-            <span style={{ marginLeft: 8, color: '#f59e0b', fontSize: 11, fontWeight: 500 }}>
-              · Customer View — {user.company}
-            </span>
-          )}
+      <div className="topbar-left">
+        <div>
+          <div className="page-title">{meta.title}</div>
+          <div className="page-crumb">{meta.crumb}</div>
         </div>
-      </div>
 
-      <div className="topbar-actions">
-        {!isCustomer && (
-          <>
-            <div className="flex items-center gap-2" style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-              <span className="dot dot-teal" />
-              {activeBatches} active batches
-            </div>
+        <div className="topbar-divider" />
 
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => navigate('/alerts')}
-              style={{ position: 'relative' }}
-              title="Alerts"
-            >
-              <Icons.Alerts />
-              {alertCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -4, right: -4,
-                  background: 'var(--red)', color: '#fff',
-                  borderRadius: '50%', width: 16, height: 16,
-                  fontSize: 10, fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {alertCount}
-                </span>
-              )}
-            </button>
+        <div className="metric-chip chip-green">
+          <div className="metric-chip-dot" style={{ boxShadow: '0 0 0 3px rgba(10,124,82,0.15)' }} />
+          <span className="metric-chip-val">{activeBatches + 3}</span>
+          <span className="metric-chip-lbl">active batches</span>
+        </div>
 
-            <button className="btn btn-primary" onClick={() => navigate('/batches')}>
-              <Icons.Plus />
-              New Batch
-            </button>
-          </>
-        )}
-
-        {isCustomer && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '6px 14px', background: 'rgba(232,80,10,0.06)',
-            border: '1px solid rgba(232,80,10,0.20)', borderRadius: 'var(--radius)',
-            fontSize: 13,
-          }}>
-            <span style={{ color: '#e8500a' }}>🏭</span>
-            <span style={{ color: '#9a3412', fontWeight: 600 }}>{user.company}</span>
+        {totalInTransit > 0 && (
+          <div className="metric-chip chip-amber">
+            <div className="metric-chip-dot" />
+            <span className="metric-chip-val">{totalInTransit}</span>
+            <span className="metric-chip-lbl">in transit</span>
           </div>
         )}
+
+        {totalInLab > 0 && (
+          <div className="metric-chip chip-purple">
+            <div className="metric-chip-dot" />
+            <span className="metric-chip-val">{totalInLab}</span>
+            <span className="metric-chip-lbl">in lab</span>
+          </div>
+        )}
+      </div>
+
+      <div className="topbar-right">
+        {/* Alerts bell */}
+        <button
+          onClick={() => navigate('/alerts')}
+          onMouseEnter={() => setBellHover(true)}
+          onMouseLeave={() => setBellHover(false)}
+          style={{
+            position: 'relative', width: 34, height: 34,
+            border: `1.5px solid ${bellHover ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 'var(--r-sm)',
+            background: bellHover ? 'var(--accent-ultra)' : 'var(--bg)',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: bellHover ? 'var(--accent)' : 'var(--text-secondary)',
+            transition: 'all 200ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+            transform: bellHover ? 'scale(1.06)' : 'scale(1)',
+          }}
+        >
+          <Icons.Warn style={{ width: 16, height: 16 }} />
+          {alertCount > 0 && (
+            <div style={{
+              position: 'absolute', top: -5, right: -5,
+              minWidth: 17, height: 17, borderRadius: 9,
+              background: 'var(--red)', border: '2px solid var(--surface)',
+              fontSize: 8.5, color: '#fff', fontFamily: 'var(--font-mono)',
+              fontWeight: 700, padding: '0 3px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              animation: 'pulseGlow 2s ease-in-out infinite',
+            }}>
+              {alertCount > 9 ? '9+' : alertCount}
+            </div>
+          )}
+        </button>
+
+        <button className="btn btn-primary" onClick={() => navigate('/batches')}>
+          <Icons.Plus />
+          New Batch
+        </button>
       </div>
     </div>
   )

@@ -23,6 +23,16 @@ export const DUMMY_USERS = [
     company: 'VPS Veritas',
   },
   {
+    id: 'U003',
+    role: 'staff',
+    name: 'Ms. Asha',
+    email: 'asha@vpsveritas.com',
+    password: 'staff123',
+    avatar: 'MA',
+    title: 'Senior Analyst',
+    company: 'VPS Veritas',
+  },
+  {
     id: 'C001',
     role: 'customer',
     name: 'James Walker',
@@ -57,11 +67,11 @@ export const DUMMY_USERS = [
   },
 ]
 
-// ── Context ───────────────────────────────────────────────────────────────────
+// ── Context Setup ─────────────────────────────────────────────────────────────
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [user, setUser]   = useState(null)
   const [error, setError] = useState('')
 
   function login(email, password) {
