@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
 
 // ── Dummy User Accounts ───────────────────────────────────────────────────────
 export const DUMMY_USERS = [
@@ -71,8 +71,26 @@ export const DUMMY_USERS = [
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser]   = useState(null)
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('vps_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
   const [error, setError] = useState('')
+
+  // Keep sessionStorage in sync with user state
+  useEffect(() => {
+    try {
+      if (user) {
+        sessionStorage.setItem('vps_user', JSON.stringify(user))
+      } else {
+        sessionStorage.removeItem('vps_user')
+      }
+    } catch {}
+  }, [user])
 
   function login(email, password) {
     setError('')

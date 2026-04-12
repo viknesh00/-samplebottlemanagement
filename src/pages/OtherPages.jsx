@@ -184,7 +184,7 @@ export function SettingsPage() {
           <div className="card anim-slide-up" style={{ animationDelay: '240ms' }}>
             <div className="card-header"><span className="card-title">System Info</span><span className="badge badge-green">Operational</span></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[['Version','v2.1.0'],['Environment','Production'],['DB Status','Connected'],['Last Backup','Today 03:00']].map(([l,v]) => (
+              {[['Version','v1.1.0'],['Environment','Production'],['DB Status','Connected'],['Last Backup','Today 03:00']].map(([l,v]) => (
                 <div key={l} style={{ padding: '11px 13px', background: 'var(--bg)', borderRadius: 'var(--r-sm)', border: 'var(--rule)' }}>
                   <div className="info-label">{l}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)', marginTop: 3 }}>{v}</div>

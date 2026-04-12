@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
+import { useSessionState } from './utils/useSessionState'
 
 import Sidebar        from './components/Sidebar'
 import Topbar         from './components/Topbar'
@@ -86,11 +87,13 @@ function PageWrapper({ children }) {
 function AppShell() {
   const { user } = useAuth()
 
-  const [batches,   setBatches]   = useState(INIT_BATCHES)
-  const [customers, setCustomers] = useState(INIT_CUSTOMERS)
-  const [reports,   setReports]   = useState(INIT_REPORTS)
+  // Persisted in sessionStorage — survives logout within the same tab,
+  // but clears automatically when the tab or browser is closed.
+  const [batches,   setBatches]   = useSessionState('vps_batches',   INIT_BATCHES)
+  const [customers, setCustomers] = useSessionState('vps_customers', INIT_CUSTOMERS)
+  const [reports,   setReports]   = useSessionState('vps_reports',   INIT_REPORTS)
+  const [bottles,   setBottles]   = useSessionState('vps_bottles',   INIT_BOTTLES)
   const [alerts]                  = useState(INIT_ALERTS)
-  const [bottles,   setBottles]   = useState(INIT_BOTTLES)
 
   const activeBatches   = batches.filter(b => b.stage === 0).length
   const alertCount      = alerts.length

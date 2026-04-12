@@ -78,7 +78,7 @@ export default function SettingsPage() {
           </div>
           <div className="card">
             <div className="card-header"><span className="card-title">System Info</span></div>
-            <div className="info-row"><span style={{ fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px' }}>Version</span><span className="mono" style={{ fontWeight: 700 }}>v2.1.0</span></div>
+            <div className="info-row"><span style={{ fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px' }}>Version</span><span className="mono" style={{ fontWeight: 700 }}>v1.1.0</span></div>
             <div className="info-row"><span style={{ fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px' }}>Database</span><span className="badge badge-green">Online</span></div>
             <div className="info-row"><span style={{ fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px' }}>Last Backup</span><span className="mono" style={{ fontSize: 11 }}>Today · 03:00 IST</span></div>
             <div className="info-row"><span style={{ fontSize:10,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.5px' }}>API Status</span><span className="badge badge-green">Healthy</span></div>

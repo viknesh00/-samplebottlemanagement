@@ -104,7 +104,7 @@ export default function Sidebar({ alertCount }) {
                 animation: 'pulseGlow 2.5s ease-in-out infinite',
               }} />
               <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.28)', fontFamily: 'var(--font-mono)' }}>
-                Online · v2.1.0
+                Online · v1.1.0
               </span>
             </div>
           </div>
