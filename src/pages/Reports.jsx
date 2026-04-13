@@ -141,7 +141,7 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
 
             {sel.status==='Draft' && !isCustomer && (
               <button className="btn btn-success w-full" onClick={()=>issueReport(sel.id)}>
-                ✓ Issue Report to Customer
+                Issue Report to Customer
               </button>
             )}
           </div>

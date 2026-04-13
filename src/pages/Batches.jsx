@@ -1,9 +1,14 @@
 import React, { useState } from 'react'
 import { COURIERS, SAMPLE_TYPES, fmtDate, today, daysSince } from '../data/mockData'
 import { Modal, SearchBar, SegBar, PriorityBadge } from '../components/UI'
+import {
+  Plus, Package, Clock, CheckCircle2, AlertTriangle,
+  ChevronDown, ChevronRight, ArrowRight,
+  ClipboardList, Check, X as XIcon,
+} from 'lucide-react'
 import * as Icons from '../components/Icons'
 
-// ── New Batch Form ─────────────────────────────────────────────────────────────
+/* ── New Batch Form ─────────────────────────────────────────────────────────── */
 function BatchForm({ customers, onSave, onClose }) {
   const [form, setForm] = useState({
     customer: '', contact: '', qty: 10, courier: 'BlueDart', awb: '',
@@ -82,37 +87,77 @@ function BatchForm({ customers, onSave, onClose }) {
       <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginTop: 16 }}>
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={!form.customer}>
-          <Icons.Plus /> Create Batch
+          <Plus size={15} strokeWidth={2} /> Create Batch
         </button>
       </div>
     </>
   )
 }
 
-// ── Approve Request Modal ──────────────────────────────────────────────────────
+/* ── Approve Request Modal ──────────────────────────────────────────────────── */
 function ApproveRequestModal({ request, onClose, onApprove }) {
   const [form, setForm] = useState({
     courier: 'BlueDart', awb: '', dispatched: today(),
     qty: request.qty, notes: '',
   })
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const priorityColor = request.priority === 'urgent' ? 'var(--red)' : request.priority === 'high' ? 'var(--amber)' : 'var(--blue)'
 
   return (
-    <Modal open onClose={onClose} title={`Approve Request — ${request.customer?.split(' ').slice(0,2).join(' ')}`}>
+    <Modal open onClose={onClose} title={`Approve Request — ${request.customer?.split(' ').slice(0,2).join(' ')}`} large>
       {/* Request summary */}
-      <div style={{ padding:'12px 14px', borderRadius:'var(--r)', background:'#f0fdf4', border:'1px solid #a7f3d0', marginBottom:18 }}>
-        <div style={{ fontSize:11, fontWeight:700, color:'var(--green)', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.5px' }}>Customer Request Details</div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'5px 20px', fontSize:12.5 }}>
-          <div><span style={{color:'var(--text-muted)'}}>Customer:</span> <strong>{request.customer?.split(' ').slice(0,3).join(' ')}</strong></div>
-          <div><span style={{color:'var(--text-muted)'}}>Requested Qty:</span> <strong>{request.qty} bottles</strong></div>
-          <div><span style={{color:'var(--text-muted)'}}>Sample Type:</span> <strong>{request.sampleType}</strong></div>
-          <div><span style={{color:'var(--text-muted)'}}>Priority:</span> <strong style={{textTransform:'capitalize'}}>{request.priority}</strong></div>
-          <div style={{gridColumn:'1/-1'}}><span style={{color:'var(--text-muted)'}}>Location:</span> <strong>{request.location}</strong></div>
-          {request.notes && <div style={{gridColumn:'1/-1'}}><span style={{color:'var(--text-muted)'}}>Notes:</span> {request.notes}</div>}
+      <div style={{ padding:'14px 16px', borderRadius:'var(--r)', background:'rgba(10,124,82,0.05)', border:'1px solid rgba(10,124,82,0.2)', marginBottom:20 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+          <div style={{ width:32, height:32, borderRadius:'var(--r-xs)', background:'rgba(10,124,82,0.1)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <ClipboardList size={16} color="var(--green)" strokeWidth={2} />
+          </div>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:'var(--green)', textTransform:'uppercase', letterSpacing:'0.5px' }}>Customer Request Details</div>
+            <div style={{ fontSize:10.5, color:'var(--text-muted)', fontFamily:'var(--font-mono)', marginTop:1 }}>{request.id}</div>
+          </div>
+          {request.priority !== 'normal' && (
+            <span style={{
+              marginLeft:'auto', fontSize:10, fontWeight:700, padding:'2px 10px', borderRadius:20,
+              background: priorityColor + '15', color: priorityColor,
+              border: `1px solid ${priorityColor}30`, textTransform:'uppercase', letterSpacing:'0.5px',
+            }}>{request.priority}</span>
+          )}
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 24px', fontSize:12.5 }}>
+          <div>
+            <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>Customer</div>
+            <strong>{request.customer?.split(' ').slice(0,3).join(' ')}</strong>
+          </div>
+          <div>
+            <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>Requested Qty</div>
+            <strong style={{ fontSize:16, fontFamily:'var(--font-display)', color:'var(--accent)' }}>{request.qty}</strong>
+            <span style={{ fontSize:11, color:'var(--text-muted)', marginLeft:4 }}>bottles</span>
+          </div>
+          <div>
+            <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>Sample Type</div>
+            <strong>{request.sampleType}</strong>
+          </div>
+          <div>
+            <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>Requested On</div>
+            <strong>{fmtDate(request.requestedDate)}</strong>
+          </div>
+          <div style={{ gridColumn:'1/-1' }}>
+            <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>Collection Location</div>
+            <strong>{request.location || '—'}</strong>
+          </div>
+          {request.notes && (
+            <div style={{ gridColumn:'1/-1' }}>
+              <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:2 }}>Customer Notes</div>
+              <span style={{ color:'var(--text-secondary)', lineHeight:1.5 }}>{request.notes}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:12 }}>Dispatch Details</div>
+      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ width:20, height:20, borderRadius:'50%', background:'var(--accent)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800 }}>2</div>
+        Dispatch Details
+      </div>
       <div className="grid-2">
         <div className="form-group">
           <label>Bottles to Dispatch</label>
@@ -139,11 +184,107 @@ function ApproveRequestModal({ request, onClose, onApprove }) {
       </div>
       <div style={{ display:'flex', gap:10, justifyContent:'space-between', marginTop:16 }}>
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-        <button className="btn btn-primary" disabled={!form.awb.trim()} onClick={() => { onApprove(form); onClose() }}>
-          <Icons.Check /> Approve & Dispatch
+        <button
+          className="btn btn-primary"
+          disabled={!form.awb.trim()}
+          onClick={() => { onApprove(form); onClose() }}
+        >
+          <Check size={15} strokeWidth={2.5} /> Approve &amp; Dispatch
         </button>
       </div>
     </Modal>
+  )
+}
+
+/* ── History Row (expandable) ─────────────────────────────────────────────── */
+function HistoryRow({ r, i, statusColor, statusBg }) {
+  const [expanded, setExpanded] = useState(false)
+  const priorityColor = r.priority==='urgent' ? '#dc2626' : r.priority==='high' ? '#d97706' : 'var(--text-muted)'
+  const priorityBg    = r.priority==='urgent' ? '#fef2f2' : r.priority==='high' ? '#fffbeb' : 'var(--bg)'
+  const priorityBorder= r.priority==='urgent' ? '#fecaca' : r.priority==='high' ? '#fde68a' : 'var(--border)'
+
+  return (
+    <>
+      <tr
+        onClick={() => setExpanded(p => !p)}
+        style={{ borderBottom: expanded ? 'none' : '1px solid var(--border-light)', transition: 'background 0.1s', cursor: 'pointer' }}
+        onMouseEnter={e => { if (!expanded) e.currentTarget.style.background='var(--bg)' }}
+        onMouseLeave={e => { if (!expanded) e.currentTarget.style.background='' }}
+      >
+        <td style={{ padding:'10px 14px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            {expanded
+              ? <ChevronDown size={13} color="var(--text-muted)" />
+              : <ChevronRight size={13} color="var(--text-muted)" />
+            }
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:11, color:'var(--accent)', fontWeight:700 }}>{r.id||`REQ-${i+1}`}</span>
+          </div>
+        </td>
+        <td style={{ padding:'10px 14px', fontWeight:600, whiteSpace:'nowrap' }}>{r.customer?.split(' ').slice(0,2).join(' ')}</td>
+        <td style={{ padding:'10px 14px' }}>{r.sampleType}</td>
+        <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontWeight:700 }}>{r.qty}</td>
+        <td style={{ padding:'10px 14px' }}>
+          <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:4, textTransform:'capitalize',
+            background:priorityBg, color:priorityColor, border:`1px solid ${priorityBorder}`,
+          }}>{r.priority||'normal'}</span>
+        </td>
+        <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontSize:11, color:'var(--text-muted)', whiteSpace:'nowrap' }}>{fmtDate(r.requestedDate)}</td>
+        <td style={{ padding:'10px 14px' }}>
+          <span style={{ fontSize:10.5, fontWeight:700, padding:'3px 10px', borderRadius:20,
+            background: statusBg[r.status]||'var(--bg)', color: statusColor[r.status]||'var(--text-muted)',
+            border:`1px solid ${statusColor[r.status]||'var(--border)'}30`, whiteSpace:'nowrap',
+          }}>{r.status}</span>
+        </td>
+        <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontSize:11, color:'var(--accent)' }}>{r.batchId||'—'}</td>
+      </tr>
+      {expanded && (
+        <tr style={{ background:'var(--bg)' }}>
+          <td colSpan={8} style={{ padding:'0 14px 16px 14px', borderBottom:'1px solid var(--border-light)' }}>
+            <div style={{
+              display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))',
+              gap:'10px 24px', padding:'14px 16px',
+              borderRadius:'var(--r)', background:'var(--surface)',
+              border:'1px solid var(--border)', marginTop:8, fontSize:12.5,
+            }}>
+              <div>
+                <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>Location</div>
+                <strong>{r.location||'—'}</strong>
+              </div>
+              {r.status === 'Approved' && (
+                <>
+                  <div>
+                    <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>Approved On</div>
+                    <strong>{fmtDate(r.approvedDate)||'—'}</strong>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>Linked Batch</div>
+                    <strong style={{ color:'var(--accent)' }}>{r.batchId||'—'}</strong>
+                  </div>
+                </>
+              )}
+              {r.status === 'Rejected' && (
+                <div>
+                  <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>Rejected On</div>
+                  <strong>{fmtDate(r.rejectedDate)||'—'}</strong>
+                </div>
+              )}
+              {r.status === 'Fulfilled' && (
+                <div>
+                  <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>Status</div>
+                  <strong style={{ color:'var(--blue)' }}>Batch acknowledged by customer</strong>
+                </div>
+              )}
+              {r.notes && (
+                <div style={{ gridColumn:'1/-1' }}>
+                  <div style={{ fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.4px', marginBottom:3 }}>Notes</div>
+                  <span style={{ color:'var(--text-secondary)', lineHeight:1.5 }}>{r.notes}</span>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -159,7 +300,7 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
   const [approveReq, setApproveReq] = useState(null)
   const [search, setSearch]         = useState('')
   const [tab, setTab]               = useState('all')
-  const [reqTab, setReqTab]          = useState('pending')
+  const [reqTab, setReqTab]         = useState('pending')
 
   const counts = {
     all:      batches.length,
@@ -188,9 +329,8 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
     { key: 'pending', label: 'Pending Approval', count: pendingRequests.length },
     { key: 'history', label: 'Request History',  count: allReviewed.length },
   ]
-  const reqRows      = reqTab === 'pending' ? pendingRequests : allReviewed
-  const statusColor  = { Approved: 'var(--green)', Rejected: 'var(--red)', Fulfilled: 'var(--blue)' }
-  const statusBg     = { Approved: 'rgba(10,124,82,0.08)', Rejected: 'rgba(212,42,42,0.08)', Fulfilled: 'rgba(31,94,196,0.08)' }
+  const statusColor = { Approved: 'var(--green)', Rejected: 'var(--red)', Fulfilled: 'var(--blue)' }
+  const statusBg    = { Approved: 'rgba(10,124,82,0.08)', Rejected: 'rgba(212,42,42,0.08)', Fulfilled: 'rgba(31,94,196,0.08)' }
 
   function createBatch(data) { setBatches(p => [data, ...p]) }
 
@@ -236,18 +376,18 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
           <div className="page-header-sub">Track every bottle from dispatch to report generation</div>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          <Icons.Plus /> New Batch
+          <Plus size={15} strokeWidth={2} /> New Batch
         </button>
       </div>
 
       {/* Summary Cards */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
         {[
-          { value: batches.length,        label: 'Total Batches',      sub: 'All time',                   color: 'var(--accent)', bg: 'rgba(232,93,10,0.06)',  border: 'rgba(232,93,10,0.18)'  },
-          { value: counts.active,         label: 'Awaiting Receipt',   sub: 'Dispatched · not received',  color: 'var(--amber)',  bg: 'rgba(201,122,6,0.06)',  border: 'rgba(201,122,6,0.18)'  },
-          { value: counts.complete,       label: 'Received',           sub: 'Confirmed at lab',           color: 'var(--green)', bg: 'rgba(10,124,82,0.06)',  border: 'rgba(10,124,82,0.18)'  },
-          { value: counts.issues,         label: 'With Issues',        sub: 'Requires attention',         color: 'var(--red)',   bg: 'rgba(212,42,42,0.06)',  border: 'rgba(212,42,42,0.18)'  },
-          { value: pendingRequests.length, label: 'Customer Requests', sub: 'Pending your approval',      color: 'var(--blue)',  bg: 'rgba(31,94,196,0.06)',  border: 'rgba(31,94,196,0.18)'  },
+          { value: batches.length,         label: 'Total Batches',      sub: 'All time',                   color: 'var(--accent)', bg: 'rgba(232,93,10,0.06)',  border: 'rgba(232,93,10,0.18)'  },
+          { value: counts.active,          label: 'Awaiting Receipt',   sub: 'Dispatched · not received',  color: 'var(--amber)',  bg: 'rgba(201,122,6,0.06)',  border: 'rgba(201,122,6,0.18)'  },
+          { value: counts.complete,        label: 'Received',           sub: 'Confirmed at lab',           color: 'var(--green)', bg: 'rgba(10,124,82,0.06)',  border: 'rgba(10,124,82,0.18)'  },
+          { value: counts.issues,          label: 'With Issues',        sub: 'Requires attention',         color: 'var(--red)',   bg: 'rgba(212,42,42,0.06)',  border: 'rgba(212,42,42,0.18)'  },
+          { value: pendingRequests.length, label: 'Customer Requests',  sub: 'Pending your approval',      color: 'var(--blue)',  bg: 'rgba(31,94,196,0.06)',  border: 'rgba(31,94,196,0.18)'  },
         ].map(s => (
           <div key={s.label} style={{
             flex: '1 1 140px', padding: '13px 15px',
@@ -262,20 +402,27 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
         ))}
       </div>
 
-      {/* ── Customer Batch Requests — Professional Tabbed Card ── */}
+      {/* ── Customer Batch Requests Panel ── */}
       {batchRequests.length > 0 && (
         <div className="card" style={{ marginBottom: 24 }}>
           {/* Card header */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 0' }}>
-            <span className="card-title">Customer Batch Requests</span>
-            {pendingRequests.length > 0 && <span className="badge badge-blue">{pendingRequests.length} awaiting approval</span>}
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <ClipboardList size={18} color="var(--accent)" strokeWidth={2} />
+              <span className="card-title">Customer Batch Requests</span>
+            </div>
+            {pendingRequests.length > 0 && (
+              <span className="badge badge-blue" style={{ animation: 'pulseGlow 2s infinite' }}>
+                {pendingRequests.length} awaiting approval
+              </span>
+            )}
           </div>
 
           {/* Tabs */}
-          <div style={{ display:'flex', gap:2, padding:'0 20px', borderBottom:'1px solid var(--border)', marginTop:8 }}>
+          <div style={{ display:'flex', gap:2, padding:'0 20px', borderBottom:'1px solid var(--border)', marginTop:12 }}>
             {reqTabs.map(t => (
               <button key={t.key} onClick={() => setReqTab(t.key)} style={{
-                padding:'8px 14px', fontSize:11.5, fontWeight:600,
+                padding:'8px 16px', fontSize:11.5, fontWeight:600,
                 background:'none', border:'none', cursor:'pointer',
                 borderBottom: reqTab===t.key ? '2px solid var(--accent)' : '2px solid transparent',
                 color: reqTab===t.key ? 'var(--accent)' : 'var(--text-muted)',
@@ -284,7 +431,7 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
                 {t.label}
                 {t.count > 0 && (
                   <span style={{
-                    fontSize:9.5, fontWeight:700, padding:'1px 5px', borderRadius:10,
+                    fontSize:9.5, fontWeight:700, padding:'1px 6px', borderRadius:10,
                     background: reqTab===t.key ? 'var(--accent)' : 'var(--border-dark)',
                     color: reqTab===t.key ? '#fff' : 'var(--text-muted)',
                   }}>{t.count}</span>
@@ -293,83 +440,103 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
             ))}
           </div>
 
-          {/* Table */}
-          {reqRows.length === 0 ? (
-            <div style={{ padding:'24px 20px', textAlign:'center', color:'var(--text-muted)', fontSize:12.5 }}>
-              {reqTab === 'pending' ? 'No pending requests.' : 'No reviewed requests yet.'}
-            </div>
-          ) : reqTab === 'pending' ? (
-            /* Pending — action rows */
-            <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'14px 16px' }}>
-              {pendingRequests.map(req => (
-                <div key={req.id} style={{
-                  display:'flex', alignItems:'center', gap:12, padding:'12px 14px',
-                  borderRadius:'var(--r)', border:'1px solid var(--border)', background:'var(--surface)',
-                  borderLeft: req.priority==='urgent' ? '3px solid var(--red)' : req.priority==='high' ? '3px solid var(--amber)' : '3px solid var(--border-dark)',
-                }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
-                      <span style={{ fontSize:13, fontWeight:700 }}>{req.customer?.split(' ').slice(0,3).join(' ')}</span>
-                      <PriorityBadge priority={req.priority} />
-                      <span className="mono" style={{ fontSize:9.5, color:'var(--text-muted)' }}>{req.id}</span>
+          {/* Pending tab — action cards */}
+          {reqTab === 'pending' && (
+            pendingRequests.length === 0 ? (
+              <div style={{ padding:'32px 20px', textAlign:'center', color:'var(--text-muted)' }}>
+                <CheckCircle2 size={28} style={{ margin:'0 auto 10px', opacity:0.2, display:'block' }} strokeWidth={1.5} />
+                <div style={{ fontSize:12.5 }}>No pending requests. All caught up!</div>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:10, padding:'16px 16px' }}>
+                {pendingRequests.map(req => {
+                  const pColor = req.priority==='urgent' ? 'var(--red)' : req.priority==='high' ? 'var(--amber)' : 'var(--border-dark)'
+                  return (
+                    <div key={req.id} style={{
+                      borderRadius:'var(--r)', border:`1px solid var(--border)`,
+                      borderLeft:`3px solid ${pColor}`,
+                      background:'var(--surface)', overflow:'hidden',
+                    }}>
+                      {/* Request summary row */}
+                      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 16px' }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                            <span style={{ fontSize:13, fontWeight:700 }}>{req.customer?.split(' ').slice(0,3).join(' ')}</span>
+                            <PriorityBadge priority={req.priority} />
+                            <span className="mono" style={{ fontSize:9.5, color:'var(--text-muted)' }}>{req.id}</span>
+                          </div>
+                          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'2px 20px', fontSize:11.5 }}>
+                            <div style={{ color:'var(--text-muted)' }}>
+                              Sample: <span style={{ color:'var(--text-primary)', fontWeight:600 }}>{req.sampleType}</span>
+                            </div>
+                            <div style={{ color:'var(--text-muted)' }}>
+                              Bottles: <span style={{ color:'var(--accent)', fontWeight:700, fontSize:13, fontFamily:'var(--font-display)' }}>{req.qty}</span>
+                            </div>
+                            <div style={{ color:'var(--text-muted)' }}>
+                              Requested: <span style={{ color:'var(--text-primary)', fontWeight:600 }}>{fmtDate(req.requestedDate)}</span>
+                            </div>
+                            <div style={{ color:'var(--text-muted)', gridColumn:'1/-1', marginTop:1 }}>
+                              Location: <span style={{ color:'var(--text-primary)', fontWeight:600 }}>{req.location?.slice(0,60)}{req.location?.length>60?'…':''}</span>
+                            </div>
+                          </div>
+                          {req.notes && (
+                            <div style={{ fontSize:11, color:'var(--text-muted)', marginTop:4, fontFamily:'var(--font-mono)', fontStyle:'italic' }}>
+                              "{req.notes.slice(0,80)}{req.notes.length>80?'…':''}"
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                          <button
+                            className="btn btn-sm"
+                            style={{ borderColor:'var(--red)', color:'var(--red)', background:'rgba(212,42,42,0.05)', display:'flex', alignItems:'center', gap:5 }}
+                            onClick={() => handleReject(req.id)}
+                          >
+                            <XIcon size={13} strokeWidth={2} /> Reject
+                          </button>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            style={{ display:'flex', alignItems:'center', gap:5 }}
+                            onClick={() => setApproveReq(req)}
+                          >
+                            <Check size={13} strokeWidth={2.5} /> Approve
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize:12, color:'var(--text-muted)', fontFamily:'var(--font-mono)' }}>
-                      {req.sampleType} · {req.qty} bottles · {req.location?.slice(0,40)}{req.location?.length>40?'…':''}
-                    </div>
-                    <div style={{ fontSize:10.5, color:'var(--text-muted)', marginTop:2 }}>
-                      Requested {fmtDate(req.requestedDate)}{req.notes && <span style={{ marginLeft:8 }}>· {req.notes.slice(0,50)}</span>}
-                    </div>
-                  </div>
-                  <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleReject(req.id)}><Icons.X /> Reject</button>
-                    <button className="btn btn-primary btn-sm" onClick={() => setApproveReq(req)}><Icons.Check /> Approve</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            /* History — clean table */
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5 }}>
-                <thead>
-                  <tr style={{ background:'var(--bg)', borderBottom:'1px solid var(--border)' }}>
-                    {['Request ID','Customer','Sample Type','Qty','Location','Priority','Requested','Status','Linked Batch'].map(h => (
-                      <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10, fontWeight:700,
-                        textTransform:'uppercase', letterSpacing:'0.5px', color:'var(--text-muted)', whiteSpace:'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {allReviewed.map((r,i) => (
-                    <tr key={r.id||i} style={{ borderBottom:'1px solid var(--border-light)', transition:'background 0.1s' }}
-                      onMouseEnter={e=>e.currentTarget.style.background='var(--bg)'}
-                      onMouseLeave={e=>e.currentTarget.style.background=''}
-                    >
-                      <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontSize:11, color:'var(--accent)', fontWeight:700 }}>{r.id||`REQ-${i+1}`}</td>
-                      <td style={{ padding:'10px 14px', fontWeight:600, whiteSpace:'nowrap' }}>{r.customer?.split(' ').slice(0,2).join(' ')}</td>
-                      <td style={{ padding:'10px 14px' }}>{r.sampleType}</td>
-                      <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontWeight:700 }}>{r.qty}</td>
-                      <td style={{ padding:'10px 14px', color:'var(--text-secondary)', maxWidth:140, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.location||'—'}</td>
-                      <td style={{ padding:'10px 14px' }}>
-                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:4, textTransform:'capitalize',
-                          background:r.priority==='urgent'?'#fef2f2':r.priority==='high'?'#fffbeb':'var(--bg)',
-                          color:r.priority==='urgent'?'#dc2626':r.priority==='high'?'#d97706':'var(--text-muted)',
-                          border:`1px solid ${r.priority==='urgent'?'#fecaca':r.priority==='high'?'#fde68a':'var(--border)'}`,
-                        }}>{r.priority||'normal'}</span>
-                      </td>
-                      <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontSize:11, color:'var(--text-muted)', whiteSpace:'nowrap' }}>{fmtDate(r.requestedDate)}</td>
-                      <td style={{ padding:'10px 14px' }}>
-                        <span style={{ fontSize:10.5, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                          background: statusBg[r.status]||'var(--bg)', color: statusColor[r.status]||'var(--text-muted)',
-                          border:`1px solid ${statusColor[r.status]||'var(--border)'}30`, whiteSpace:'nowrap',
-                        }}>{r.status}</span>
-                      </td>
-                      <td style={{ padding:'10px 14px', fontFamily:'var(--font-mono)', fontSize:11, color:'var(--accent)' }}>{r.batchId||'—'}</td>
+                  )
+                })}
+              </div>
+            )
+          )}
+
+          {/* History tab — expandable table */}
+          {reqTab === 'history' && (
+            allReviewed.length === 0 ? (
+              <div style={{ padding:'24px 20px', textAlign:'center', color:'var(--text-muted)', fontSize:12.5 }}>
+                No reviewed requests yet.
+              </div>
+            ) : (
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12.5 }}>
+                  <thead>
+                    <tr style={{ background:'var(--bg)', borderBottom:'1px solid var(--border)' }}>
+                      {['Request ID','Customer','Sample Type','Qty','Priority','Requested','Status','Linked Batch'].map(h => (
+                        <th key={h} style={{ padding:'9px 14px', textAlign:'left', fontSize:10, fontWeight:700,
+                          textTransform:'uppercase', letterSpacing:'0.5px', color:'var(--text-muted)', whiteSpace:'nowrap' }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {allReviewed.map((r, i) => (
+                      <HistoryRow key={r.id||i} r={r} i={i} statusColor={statusColor} statusBg={statusBg} />
+                    ))}
+                  </tbody>
+                </table>
+                <div style={{ padding:'8px 14px', fontSize:10.5, color:'var(--text-muted)', fontFamily:'var(--font-mono)', borderTop:'1px solid var(--border-light)' }}>
+                  Click any row to expand details
+                </div>
+              </div>
+            )
           )}
         </div>
       )}
@@ -443,10 +610,10 @@ export default function Batches({ batches, setBatches, bottles, setBottles, cust
                   <td><span className="badge badge-gray">{b.courier}</span></td>
                   <td>
                     {b.issues?.length > 0
-                      ? <span className="badge badge-red">⚠ Issues</span>
+                      ? <span className="badge badge-red" style={{ display:'flex', alignItems:'center', gap:4 }}><AlertTriangle size={10} strokeWidth={2} /> Issues</span>
                       : b.stage === 0
                         ? <span className="badge badge-amber">Awaiting</span>
-                        : <span className="badge badge-green">✓ Received</span>
+                        : <span className="badge badge-green" style={{ display:'flex', alignItems:'center', gap:4 }}><CheckCircle2 size={10} strokeWidth={2} /> Received</span>
                     }
                   </td>
                   <td>

@@ -447,3 +447,19 @@ input[type=date]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: poin
 .toast-success .toast-icon { background: rgba(10,124,82,0.2); color: #34d399; }
 .toast-error   .toast-icon { background: rgba(212,42,42,0.2); color: #f87171; }
 .toast-info    .toast-icon { background: rgba(232,93,10,0.2); color: var(--accent-light); }
+/* ── Camera Scanner Improvements ────────────────────────────────────────────── */
+/* scanLine now animates an absolutely-positioned element using top */
+@keyframes scanLine {
+  0%   { top: 8%;  opacity: 0.5; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 86%; opacity: 0.5; }
+}
+/* Override the old scanLine that used transform */
+@keyframes scanLineLegacy { 0%,100% { top: 20%; } 50% { top: 80%; } }
+
+/* Pending request pulse */
+@keyframes requestPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(31,94,196,0); }
+  50%       { box-shadow: 0 0 0 5px rgba(31,94,196,0.12); }
+}

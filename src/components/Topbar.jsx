@@ -35,7 +35,7 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
           <div className="page-crumb">{meta.crumb}</div>
         </div>
 
-        <div className="topbar-divider" />
+        {/* <div className="topbar-divider" />
 
         <div
           className="metric-chip chip-green"
@@ -78,7 +78,7 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
             <span className="metric-chip-val">{totalInLab}</span>
             <span className="metric-chip-lbl">in lab</span>
           </div>
-        )}
+        )} */}
       </div>
 
       <div className="topbar-right">

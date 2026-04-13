@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, createContext, useContext, useCallb
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { useSessionState } from './utils/useSessionState'
+import { Check, X, Info } from 'lucide-react'
 
 import Sidebar        from './components/Sidebar'
 import Topbar         from './components/Topbar'
@@ -26,7 +27,7 @@ import {
 export const ToastContext = createContext(null)
 export function useToast() { return useContext(ToastContext) }
 
-/* ── Batch Requests Context (shared across portal & dashboard) ─────────────── */
+/* ── Batch Requests Context ────────────────────────────────────────────────── */
 export const BatchRequestsContext = createContext(null)
 export function useBatchRequests() { return useContext(BatchRequestsContext) }
 
@@ -43,9 +44,9 @@ function ToastProvider({ children }) {
   }, [])
 
   const icons = {
-    success: <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>,
-    error:   <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>,
-    info:    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>,
+    success: <Check size={16} strokeWidth={2.5} />,
+    error:   <X size={16} strokeWidth={2.5} />,
+    info:    <Info size={16} strokeWidth={2} />,
   }
 
   return (
@@ -90,12 +91,10 @@ function AppShell() {
   const [bottles,   setBottles]   = useSessionState('vps_bottles',   INIT_BOTTLES)
   const [alerts]                  = useState(INIT_ALERTS)
 
-  // Global batch requests — created by customers, approved/rejected by VPS staff
   const [batchRequests, setBatchRequests] = useSessionState('vps_batch_requests', [])
 
   const alertCount = alerts.length
 
-  // Scope metrics to customer's own data when role === 'customer'
   const scopedBatches = user?.role === 'customer'
     ? batches.filter(b => b.customer === user.customerName)
     : batches
@@ -110,8 +109,6 @@ function AppShell() {
   const totalInLab     = scopedBottles.filter(b => b.status === 'In Lab').length
 
   const portalBatches = scopedBatches
-
-  // Pending requests count for topbar badge
   const pendingRequestsCount = batchRequests.filter(r => r.status === 'Pending').length
 
   return (
@@ -128,7 +125,6 @@ function AppShell() {
           <div className="content">
             <ScrollToTop />
             <Routes>
-              {/* VPS Staff dashboard */}
               <Route path="/" element={
                 <ProtectedRoute allowedRoles={['admin','staff']}>
                   <PageWrapper>
@@ -142,7 +138,6 @@ function AppShell() {
                   </PageWrapper>
                 </ProtectedRoute>
               } />
-              {/* Customer dashboard */}
               <Route path="/dashboard" element={
                 <ProtectedRoute allowedRoles={['customer']}>
                   <PageWrapper>
@@ -159,21 +154,32 @@ function AppShell() {
               } />
               <Route path="/batches" element={
                 <ProtectedRoute allowedRoles={['admin','staff']}>
-                  <PageWrapper><Batches batches={batches} setBatches={setBatches} bottles={bottles} setBottles={setBottles} customers={customers} batchRequests={batchRequests} setBatchRequests={setBatchRequests} /></PageWrapper>
+                  <PageWrapper>
+                    <Batches
+                      batches={batches} setBatches={setBatches}
+                      bottles={bottles} setBottles={setBottles}
+                      customers={customers}
+                      batchRequests={batchRequests} setBatchRequests={setBatchRequests}
+                    />
+                  </PageWrapper>
                 </ProtectedRoute>
               } />
               <Route path="/lab" element={
                 <ProtectedRoute allowedRoles={['admin','staff']}>
-                  <PageWrapper><Lab bottles={bottles} setBottles={setBottles} batches={batches} reports={reports} setReports={setReports} /></PageWrapper>
+                  <PageWrapper>
+                    <Lab bottles={bottles} setBottles={setBottles} batches={batches} reports={reports} setReports={setReports} />
+                  </PageWrapper>
                 </ProtectedRoute>
               } />
               <Route path="/reports" element={
                 <ProtectedRoute allowedRoles={['admin','staff','customer']}>
-                  <PageWrapper><Reports
-                    reports={user?.role === 'customer' ? reports.filter(r => r.customer === user?.customerName) : reports}
-                    setReports={setReports} batches={batches} bottles={bottles} setBottles={setBottles}
-                    isCustomer={user?.role === 'customer'}
-                  /></PageWrapper>
+                  <PageWrapper>
+                    <Reports
+                      reports={user?.role === 'customer' ? reports.filter(r => r.customer === user?.customerName) : reports}
+                      setReports={setReports} batches={batches} bottles={bottles} setBottles={setBottles}
+                      isCustomer={user?.role === 'customer'}
+                    />
+                  </PageWrapper>
                 </ProtectedRoute>
               } />
               <Route path="/alerts" element={
