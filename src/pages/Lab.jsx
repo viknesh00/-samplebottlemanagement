@@ -218,6 +218,11 @@ export default function Lab({ bottles, setBottles, batches, reports, setReports 
                       {batch.returnSentDate ? ` · sent ${fmtDate(batch.returnSentDate)}` : ''}
                     </span>
                   )}
+                  {bb.some(b => b.bottleBarcode) && (
+                    <div style={{fontSize:10.5,color:'var(--text-muted)',fontFamily:'var(--font-mono)',marginTop:4}}>
+                      🔖 {bb.filter(b=>b.bottleBarcode).map(b=>b.bottleBarcode).join(' · ')}
+                    </div>
+                  )}
                 </div>
                 <button className="btn btn-success btn-sm" onClick={()=>receiveBatch(batchId)}>
                   ✓ Receive {bb.length} Bottle{bb.length!==1?'s':''}
@@ -291,7 +296,12 @@ export default function Lab({ bottles, setBottles, batches, reports, setReports 
                       }}
                     >
                       <input type="checkbox" checked={selected.includes(b.id)} onChange={()=>{}} style={{width:'auto',accentColor:'var(--orange)'}}/>
-                      <span className="mono" style={{fontSize:11,color:'var(--text-muted)',flex:1}}>Bottle #{b.bottleNum}</span>
+                      <span className="mono" style={{fontSize:11,color:'var(--text-muted)',flex:1}}>
+                        Bottle #{b.bottleNum}
+                        {b.bottleBarcode && (
+                          <span style={{marginLeft:8,color:'var(--accent)',fontSize:10}}>🔖 {b.bottleBarcode}</span>
+                        )}
+                      </span>
                       <span style={{fontSize:11,color:'var(--text-muted)'}}>{b.location||'—'}</span>
                     </div>
                   ))}

@@ -5,7 +5,9 @@ import { DonutChart, MultiSegBar } from '../components/UI'
 import {
   Package, Truck, FlaskConical, FileText,
   AlertTriangle, CheckCircle2, Clock, TriangleAlert,
+  ClipboardList, Inbox,
 } from 'lucide-react'
+import * as Icons from '../components/Icons'
 
 function KPICard({ icon: Icon, value, label, sub, color, bg, onClick, delay = 0 }) {
   return (
@@ -23,19 +25,23 @@ function KPICard({ icon: Icon, value, label, sub, color, bg, onClick, delay = 0 
   )
 }
 
-function BatchBox({ icon: Icon, value, label, sub, bg, border, iconColor, valueColor }) {
+function BatchBox({ icon: Icon, value, label, sub, iconColor }) {
   return (
     <div style={{
-      padding: '13px 16px', borderRadius: 'var(--r-sm)', background: bg,
-      border: `1px solid ${border}`, borderLeft: `3px solid ${iconColor}`,
-      transition: 'transform 200ms, box-shadow 200ms',
+      padding: '14px 16px', borderRadius: 'var(--r-sm)',
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderLeft: `3px solid ${iconColor}`,
+      display: 'flex', alignItems: 'center', gap: 14,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <Icon size={14} color={iconColor} strokeWidth={2} />
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, color: valueColor, lineHeight: 1 }}>{value}</div>
+      <div style={{ width: 40, height: 40, borderRadius: 'var(--r-xs)', background: `${iconColor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon size={18} color={iconColor} strokeWidth={2} />
       </div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>{label}</div>
-      {sub && <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{sub}</div>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
+        {sub && <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, color: iconColor, lineHeight: 1, flexShrink: 0 }}>{value}</div>
     </div>
   )
 }
@@ -43,11 +49,7 @@ function BatchBox({ icon: Icon, value, label, sub, bg, border, iconColor, valueC
 function AlertItem({ alert }) {
   const isRed = alert.severity === 'red'
   return (
-    <div style={{
-      display: 'flex', gap: 10, alignItems: 'flex-start',
-      marginBottom: 12, paddingBottom: 12,
-      borderBottom: '1px solid var(--border-light)',
-    }}>
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border-light)' }}>
       <div style={{ color: isRed ? 'var(--red)' : 'var(--amber)', flexShrink: 0, marginTop: 1 }}>
         <AlertTriangle size={14} strokeWidth={2} />
       </div>
@@ -65,9 +67,12 @@ function AlertItem({ alert }) {
   )
 }
 
-function ReportRow({ r }) {
+function ReportRow({ r, bottles = [] }) {
   const resultBadge = r.result === 'Normal' ? 'badge-green' : r.result === 'Warning' ? 'badge-amber' : 'badge-red'
   const statusBadge = r.status === 'Issued' ? 'badge-green' : 'badge-blue'
+  const barcodes = bottles
+    .filter(b => r.bottleIds?.includes(b.id) && b.bottleBarcode)
+    .map(b => b.bottleBarcode)
   return (
     <div className="info-row">
       <div>
@@ -75,6 +80,11 @@ function ReportRow({ r }) {
         <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
           {r.customer?.split(' ').slice(0, 2).join(' ')} · {r.bottleIds?.length} btl · {fmtDate(r.date)}
         </div>
+        {barcodes.length > 0 && (
+          <div style={{ fontSize: 9.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+            🔖 {barcodes.slice(0, 3).join(' · ')}{barcodes.length > 3 ? ` +${barcodes.length - 3} more` : ''}
+          </div>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <span className={`badge ${resultBadge}`}>{r.result}</span>
@@ -84,7 +94,7 @@ function ReportRow({ r }) {
   )
 }
 
-export default function Dashboard({ batches, bottles, reports, alerts }) {
+export default function Dashboard({ batches, bottles, reports, alerts, batchRequests = [], setBatchRequests, setBatches }) {
   const navigate = useNavigate()
 
   const emptyAtCust   = bottles.filter(b => b.status === 'Empty').length
@@ -98,6 +108,8 @@ export default function Dashboard({ batches, bottles, reports, alerts }) {
   const received      = batches.filter(b => b.stage === 1).length
   const withIssues    = batches.filter(b => b.issues?.length > 0).length
   const activeBatches = batches.filter(b => b.stage === 1)
+
+  const pendingRequests = batchRequests.filter(r => r.status === 'Pending')
 
   const donut = [
     { label: 'Empty at Customer', value: emptyAtCust,   color: '#d1d5db' },
@@ -118,12 +130,37 @@ export default function Dashboard({ batches, bottles, reports, alerts }) {
         </div>
       </div>
 
+      {/* Pending Batch Requests — info only, no approve/reject here */}
+      {pendingRequests.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px',
+          borderRadius: 'var(--r-lg)', marginBottom: 24,
+          background: 'rgba(31,94,196,0.06)', border: '1.5px solid rgba(31,94,196,0.2)',
+          borderLeft: '4px solid var(--blue)',
+          animation: 'slideUp 0.4s cubic-bezier(0.16,1,0.3,1) both',
+        }}>
+          <ClipboardList size={20} color="var(--blue)" strokeWidth={2} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--blue)', marginBottom: 2 }}>
+              {pendingRequests.length} customer batch request{pendingRequests.length > 1 ? 's' : ''} awaiting approval
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              {pendingRequests.map(r => `${r.customer?.split(' ')[0]} — ${r.qty} × ${r.sampleType}`).join(' · ')}
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-sm" style={{ borderColor: 'var(--blue)', color: 'var(--blue)', flexShrink: 0 }} onClick={() => navigate('/batches')}>
+            Review in Batches →
+          </button>
+        </div>
+      )}
+
       {/* KPI Row */}
-      <div className="grid-4 mb-6">
-        <KPICard delay={0}   icon={Package}      value={emptyAtCust} label="Empty at Customer" sub={`${collectedCust} collected · not sent`}         color="#6b7280"        bg="rgba(107,114,128,0.08)" onClick={() => navigate('/portal')} />
-        <KPICard delay={60}  icon={Truck}         value={inTransit}   label="In Transit"        sub="Sent to VPS · not yet received"                    color="var(--amber)"   bg="rgba(201,122,6,0.08)"    onClick={() => navigate('/lab')} />
-        <KPICard delay={120} icon={FlaskConical}  value={inLab}       label="In Lab"            sub={tested > 0 ? `${tested} tested · pending report` : 'All processed'} color="var(--purple)"  bg="rgba(103,48,194,0.08)"  onClick={() => navigate('/lab')} />
-        <KPICard delay={180} icon={FileText}      value={reports.length} label="Reports Generated" sub={`${reports.filter(r => r.status === 'Issued').length} issued to customers`} color="var(--green)" bg="rgba(10,124,82,0.08)" onClick={() => navigate('/reports')} />
+      <div className="grid-4 mb-6" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+        <KPICard delay={0}   icon={Inbox}         value={batchRequests.length}  label="Customer Requests"  sub={`${pendingRequests.length} pending · ${batchRequests.filter(r => r.status === 'Approved').length} approved`} color="var(--blue)"   bg="rgba(31,94,196,0.08)"   onClick={() => navigate('/batches')} />
+        <KPICard delay={40}  icon={Package}        value={emptyAtCust}           label="Empty at Customer"  sub={`${collectedCust} collected · not sent`}                                                                      color="#6b7280"       bg="rgba(107,114,128,0.08)" onClick={() => navigate('/portal')} />
+        <KPICard delay={80}  icon={Truck}          value={inTransit}             label="In Transit"         sub="Sent to VPS · not yet received"                                                                               color="var(--amber)"  bg="rgba(201,122,6,0.08)"   onClick={() => navigate('/lab')} />
+        <KPICard delay={120} icon={FlaskConical}   value={inLab}                 label="In Lab"             sub={tested > 0 ? `${tested} tested · pending report` : 'All processed'}                                          color="var(--purple)" bg="rgba(103,48,194,0.08)"  onClick={() => navigate('/lab')} />
+        <KPICard delay={160} icon={FileText}       value={reports.length}        label="Reports Generated"  sub={`${reports.filter(r => r.status === 'Issued').length} issued to customers`}                                  color="var(--green)"  bg="rgba(10,124,82,0.08)"   onClick={() => navigate('/reports')} />
       </div>
 
       {/* Middle Row */}
@@ -155,9 +192,9 @@ export default function Dashboard({ batches, bottles, reports, alerts }) {
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/batches')}>View All</button>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <BatchBox icon={Clock}        value={pendingAck}  label="Awaiting Acknowledgement" sub="Customer has not confirmed receipt"   bg="#fef2f2" border="#fecaca" iconColor="var(--red)"   valueColor="var(--red)" />
-            <BatchBox icon={CheckCircle2} value={received}    label="Received — Active"         sub="Bottles in collection stages"         bg="#f0fdf4" border="#a7f3d0" iconColor="var(--green)" valueColor="var(--green)" />
-            <BatchBox icon={TriangleAlert} value={withIssues} label="With Issues"               sub="Requires staff attention"             bg="#eff6ff" border="#bfdbfe" iconColor="var(--blue)"  valueColor="var(--blue)" />
+            <BatchBox icon={Clock}         value={pendingAck}  label="Awaiting Acknowledgement" sub="Customer has not confirmed receipt"   iconColor="var(--red)"   />
+            <BatchBox icon={CheckCircle2}  value={received}    label="Received — Active"         sub="Bottles in collection stages"         iconColor="var(--green)" />
+            <BatchBox icon={TriangleAlert} value={withIssues}  label="With Issues"               sub="Requires staff attention"             iconColor="var(--blue)"  />
           </div>
         </div>
 
@@ -208,7 +245,7 @@ export default function Dashboard({ batches, bottles, reports, alerts }) {
           {reports.length === 0 ? (
             <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontFamily: 'var(--font-mono)' }}>No reports yet.</div>
           ) : (
-            reports.map(r => <ReportRow key={r.id} r={r} />)
+            reports.map(r => <ReportRow key={r.id} r={r} bottles={bottles} />)
           )}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import * as Icons from './Icons'
 
 const ROUTE_META = {
@@ -10,14 +11,21 @@ const ROUTE_META = {
   '/customers': { title: 'Customers',             crumb: 'VPS LabTrack › Management' },
   '/portal':    { title: 'Customer Portal',       crumb: 'VPS LabTrack › Management' },
   '/alerts':    { title: 'System Alerts',         crumb: 'VPS LabTrack › Management' },
-  '/settings':  { title: 'Settings',              crumb: 'VPS LabTrack › System'     },
+  '/settings':  { title: 'Settings',             crumb: 'VPS LabTrack › System'     },
 }
 
 export default function Topbar({ activeBatches, alertCount, totalInTransit, totalInLab }) {
   const location = useLocation()
   const navigate  = useNavigate()
+  const { user }  = useAuth()
   const meta = ROUTE_META[location.pathname] || { title: 'VPS LabTrack', crumb: 'VPS LabTrack' }
   const [bellHover, setBellHover] = useState(false)
+
+  const isCustomer = user?.role === 'customer'
+
+  function goToBatches(filter) {
+    navigate('/batches', { state: { filter } })
+  }
 
   return (
     <div className="topbar">
@@ -29,14 +37,28 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
 
         <div className="topbar-divider" />
 
-        <div className="metric-chip chip-green">
+        <div
+          className="metric-chip chip-green"
+          onClick={() => goToBatches('active')}
+          title="Click to view active batches"
+          style={{ cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
           <div className="metric-chip-dot" style={{ boxShadow: '0 0 0 3px rgba(10,124,82,0.15)' }} />
-          <span className="metric-chip-val">{activeBatches + 3}</span>
+          <span className="metric-chip-val">{activeBatches}</span>
           <span className="metric-chip-lbl">active batches</span>
         </div>
 
         {totalInTransit > 0 && (
-          <div className="metric-chip chip-amber">
+          <div
+            className="metric-chip chip-amber"
+            onClick={() => isCustomer ? navigate('/portal') : navigate('/batches', { state: { filter: 'transit' } })}
+            title="Click to view bottles in transit"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
             <div className="metric-chip-dot" />
             <span className="metric-chip-val">{totalInTransit}</span>
             <span className="metric-chip-lbl">in transit</span>
@@ -44,7 +66,14 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
         )}
 
         {totalInLab > 0 && (
-          <div className="metric-chip chip-purple">
+          <div
+            className="metric-chip chip-purple"
+            onClick={() => isCustomer ? navigate('/portal') : navigate('/lab')}
+            title="Click to view lab queue"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
             <div className="metric-chip-dot" />
             <span className="metric-chip-val">{totalInLab}</span>
             <span className="metric-chip-lbl">in lab</span>
@@ -53,7 +82,6 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
       </div>
 
       <div className="topbar-right">
-        {/* Alerts bell */}
         <button
           onClick={() => navigate('/alerts')}
           onMouseEnter={() => setBellHover(true)}
@@ -86,10 +114,7 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
           )}
         </button>
 
-        <button className="btn btn-primary" onClick={() => navigate('/batches')}>
-          <Icons.Plus />
-          New Batch
-        </button>
+
       </div>
     </div>
   )

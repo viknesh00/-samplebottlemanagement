@@ -1,5 +1,5 @@
 import React from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import * as Icons from './Icons'
 
@@ -21,9 +21,9 @@ const NAV_SECTIONS_ADMIN = [
   {
     label: 'Management',
     items: [
-      { to: '/customers', icon: <Icons.User />,     label: 'Customers'       },
-      { to: '/portal',    icon: <Icons.Return />,   label: 'Customer Portal' },
-      { to: '/alerts',    icon: <Icons.Warn />,     label: 'Alerts', badge: true },
+      { to: '/customers', icon: <Icons.User />,    label: 'Customers'       },
+      { to: '/portal',    icon: <Icons.Return />,  label: 'Customer Portal' },
+      { to: '/alerts',    icon: <Icons.Warn />,    label: 'Alerts', badge: 'alerts' },
     ]
   },
   {
@@ -36,14 +36,21 @@ const NAV_SECTIONS_ADMIN = [
 
 const NAV_SECTIONS_CUSTOMER = [
   {
-    label: 'Portal',
+    label: 'Overview',
     items: [
-      { to: '/portal', icon: <Icons.Return />, label: 'My Batches' },
+      { to: '/dashboard', icon: <Icons.Dashboard />, label: 'Dashboard' },
+    ]
+  },
+  {
+    label: 'My Batches',
+    items: [
+      { to: '/portal',   icon: <Icons.Return />,  label: 'My Batches & Samples' },
+      { to: '/reports',  icon: <Icons.Reports />, label: 'Reports' },
     ]
   }
 ]
 
-export default function Sidebar({ alertCount }) {
+export default function Sidebar({ alertCount, pendingRequests }) {
   const { user, logout } = useAuth()
   const sections = user?.role === 'customer' ? NAV_SECTIONS_CUSTOMER : NAV_SECTIONS_ADMIN
   const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2) || 'VA'
@@ -65,63 +72,54 @@ export default function Sidebar({ alertCount }) {
 
       {/* Nav */}
       <nav className="sidebar-nav">
-        {sections.map((section) => (
-          <div className="nav-section" key={section.label}>
-            <div className="nav-label">{section.label}</div>
+        {sections.map(section => (
+          <div key={section.label} className="nav-section">
+            <div className="nav-section-label">{section.label}</div>
             {section.items.map(item => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/'}
+                end={item.to === '/' || item.to === '/dashboard'}
                 className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
               >
-                {item.icon}
-                <span>{item.label}</span>
-                {item.badge && alertCount > 0 && (
-                  <span className="nav-badge">{alertCount}</span>
+                <span className="nav-icon">{item.icon}</span>
+                <span className="nav-item-label">{item.label}</span>
+                {item.badge === 'alerts' && alertCount > 0 && (
+                  <span className="nav-badge nav-badge-red">{alertCount}</span>
+                )}
+                {item.badge === 'requests' && pendingRequests > 0 && (
+                  <span className="nav-badge nav-badge-orange">{pendingRequests}</span>
                 )}
               </NavLink>
             ))}
           </div>
         ))}
-
-        {/* System status */}
-        <div style={{ marginTop: 8 }}>
-          <div style={{
-            padding: '9px 10px',
-            borderRadius: 'var(--r-sm)',
-            background: 'rgba(255,255,255,0.025)',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}>
-            <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.14)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
-              System Status
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <div style={{
-                width: 7, height: 7, borderRadius: '50%',
-                background: '#10b981',
-                boxShadow: '0 0 8px rgba(16,185,129,0.65)',
-                animation: 'pulseGlow 2.5s ease-in-out infinite',
-              }} />
-              <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.28)', fontFamily: 'var(--font-mono)' }}>
-                Online · v1.1.0
-              </span>
-            </div>
-          </div>
-        </div>
       </nav>
 
-      {/* Footer */}
+      {/* System Status */}
+      <div className="sidebar-status">
+        <div className="status-label">System Status</div>
+        <div className="status-row">
+          <span className="status-dot"></span>
+          <span className="status-text">Online · v1.1.0</span>
+        </div>
+      </div>
+
+      {/* User card + sign out */}
       <div className="sidebar-footer">
         <div className="user-card">
-          <div className="avatar">{initials}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="user-name truncate">{user?.name}</div>
-            <div className="user-role">{user?.title || user?.role} · VPS Veritas</div>
+          <div className="user-avatar">{initials}</div>
+          <div className="user-info">
+            <div className="user-name">{user?.name}</div>
+            <div className="user-role">{user?.title || user?.role} · {user?.company || 'VPS VERITAS'}</div>
           </div>
         </div>
         <button className="logout-btn" onClick={logout}>
-          <Icons.Logout />
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
           Sign Out
         </button>
       </div>

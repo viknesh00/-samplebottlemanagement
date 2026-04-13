@@ -7,13 +7,14 @@ import Sidebar        from './components/Sidebar'
 import Topbar         from './components/Topbar'
 import ProtectedRoute from './components/ProtectedRoute'
 
-import LoginPage      from './pages/LoginPage'
-import Dashboard      from './pages/Dashboard'
-import Batches        from './pages/Batches'
-import Lab            from './pages/Lab'
-import Reports        from './pages/Reports'
-import Customers      from './pages/Customers'
-import CustomerPortal from './pages/CustomerPortal'
+import LoginPage         from './pages/LoginPage'
+import Dashboard         from './pages/Dashboard'
+import CustomerDashboard from './pages/CustomerDashboard'
+import Batches           from './pages/Batches'
+import Lab               from './pages/Lab'
+import Reports           from './pages/Reports'
+import Customers         from './pages/Customers'
+import CustomerPortal    from './pages/CustomerPortal'
 import { AlertsPage, SettingsPage, Unauthorized } from './pages/OtherPages'
 
 import {
@@ -24,6 +25,10 @@ import {
 /* ── Toast Context ─────────────────────────────────────────────────────────── */
 export const ToastContext = createContext(null)
 export function useToast() { return useContext(ToastContext) }
+
+/* ── Batch Requests Context (shared across portal & dashboard) ─────────────── */
+export const BatchRequestsContext = createContext(null)
+export function useBatchRequests() { return useContext(BatchRequestsContext) }
 
 function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -58,23 +63,15 @@ function ToastProvider({ children }) {
   )
 }
 
-/* ── Scroll to top on route change ─────────────────────────────────────────── */
 function ScrollToTop() {
   const { pathname } = useLocation()
-  const contentRef = useRef(null)
-
   useEffect(() => {
-    // Scroll the .content div to top smoothly
     const content = document.querySelector('.content')
-    if (content) {
-      content.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    if (content) content.scrollTo({ top: 0, behavior: 'smooth' })
   }, [pathname])
-
   return null
 }
 
-/* ── Page Transition Wrapper ───────────────────────────────────────────────── */
 function PageWrapper({ children }) {
   const { pathname } = useLocation()
   return (
@@ -87,91 +84,131 @@ function PageWrapper({ children }) {
 function AppShell() {
   const { user } = useAuth()
 
-  // Persisted in sessionStorage — survives logout within the same tab,
-  // but clears automatically when the tab or browser is closed.
   const [batches,   setBatches]   = useSessionState('vps_batches',   INIT_BATCHES)
   const [customers, setCustomers] = useSessionState('vps_customers', INIT_CUSTOMERS)
   const [reports,   setReports]   = useSessionState('vps_reports',   INIT_REPORTS)
   const [bottles,   setBottles]   = useSessionState('vps_bottles',   INIT_BOTTLES)
   const [alerts]                  = useState(INIT_ALERTS)
 
-  const activeBatches   = batches.filter(b => b.stage === 0).length
-  const alertCount      = alerts.length
-  const totalEmpty      = bottles.filter(b => b.status === 'Empty').length
-  const totalInTransit  = bottles.filter(b => b.status === 'Sent to VPS').length
-  const totalInLab      = bottles.filter(b => b.status === 'In Lab').length
-  const totalReports    = reports.length
+  // Global batch requests — created by customers, approved/rejected by VPS staff
+  const [batchRequests, setBatchRequests] = useSessionState('vps_batch_requests', [])
 
-  const portalBatches = user?.role === 'customer'
+  const alertCount = alerts.length
+
+  // Scope metrics to customer's own data when role === 'customer'
+  const scopedBatches = user?.role === 'customer'
     ? batches.filter(b => b.customer === user.customerName)
     : batches
 
+  const scopedBatchIds = new Set(scopedBatches.map(b => b.id))
+  const scopedBottles  = user?.role === 'customer'
+    ? bottles.filter(b => scopedBatchIds.has(b.batchId))
+    : bottles
+
+  const activeBatches  = scopedBatches.filter(b => b.stage === 0).length
+  const totalInTransit = scopedBottles.filter(b => b.status === 'Sent to VPS').length
+  const totalInLab     = scopedBottles.filter(b => b.status === 'In Lab').length
+
+  const portalBatches = scopedBatches
+
+  // Pending requests count for topbar badge
+  const pendingRequestsCount = batchRequests.filter(r => r.status === 'Pending').length
+
   return (
-    <div className="layout">
-      <Sidebar alertCount={alertCount} />
-      <div className="main">
-        <Topbar
-          activeBatches={activeBatches}
-          alertCount={alertCount}
-          totalEmpty={totalEmpty}
-          totalInTransit={totalInTransit}
-          totalInLab={totalInLab}
-        />
-        <div className="content">
-          <ScrollToTop />
-          <Routes>
-            <Route path="/" element={
-              <ProtectedRoute allowedRoles={['admin','staff']}>
-                <PageWrapper><Dashboard batches={batches} bottles={bottles} reports={reports} alerts={alerts} /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/batches" element={
-              <ProtectedRoute allowedRoles={['admin','staff']}>
-                <PageWrapper><Batches batches={batches} setBatches={setBatches} bottles={bottles} setBottles={setBottles} customers={customers} /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/lab" element={
-              <ProtectedRoute allowedRoles={['admin','staff']}>
-                <PageWrapper><Lab bottles={bottles} setBottles={setBottles} batches={batches} reports={reports} setReports={setReports} /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/reports" element={
-              <ProtectedRoute allowedRoles={['admin','staff']}>
-                <PageWrapper><Reports reports={reports} setReports={setReports} batches={batches} bottles={bottles} setBottles={setBottles} /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/alerts" element={
-              <ProtectedRoute allowedRoles={['admin','staff']}>
-                <PageWrapper><AlertsPage alerts={alerts} batches={batches} /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/customers" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <PageWrapper><Customers customers={customers} setCustomers={setCustomers} batches={batches} bottles={bottles} /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <PageWrapper><SettingsPage /></PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/portal" element={
-              <ProtectedRoute allowedRoles={['admin','staff','customer']}>
-                <PageWrapper>
-                  <CustomerPortal
-                    batches={portalBatches} setBatches={setBatches}
-                    bottles={bottles} setBottles={setBottles}
-                    lockedCustomer={user?.role === 'customer' ? user.customerName : null}
-                  />
-                </PageWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/unauthorized" element={<Unauthorized />} />
-            <Route path="*" element={<Navigate to={user?.role === 'customer' ? '/portal' : '/'} replace />} />
-          </Routes>
+    <BatchRequestsContext.Provider value={{ batchRequests, setBatchRequests }}>
+      <div className="layout">
+        <Sidebar alertCount={alertCount} pendingRequests={pendingRequestsCount} />
+        <div className="main">
+          <Topbar
+            activeBatches={activeBatches}
+            alertCount={alertCount}
+            totalInTransit={totalInTransit}
+            totalInLab={totalInLab}
+          />
+          <div className="content">
+            <ScrollToTop />
+            <Routes>
+              {/* VPS Staff dashboard */}
+              <Route path="/" element={
+                <ProtectedRoute allowedRoles={['admin','staff']}>
+                  <PageWrapper>
+                    <Dashboard
+                      batches={batches} bottles={bottles}
+                      reports={reports} alerts={alerts}
+                      batchRequests={batchRequests}
+                      setBatchRequests={setBatchRequests}
+                      setBatches={setBatches}
+                    />
+                  </PageWrapper>
+                </ProtectedRoute>
+              } />
+              {/* Customer dashboard */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute allowedRoles={['customer']}>
+                  <PageWrapper>
+                    <CustomerDashboard
+                      batches={scopedBatches}
+                      bottles={scopedBottles}
+                      reports={reports.filter(r => r.customer === user?.customerName)}
+                      batchRequests={batchRequests.filter(r => r.customer === user?.customerName)}
+                      setBatchRequests={setBatchRequests}
+                      customerName={user?.customerName}
+                    />
+                  </PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/batches" element={
+                <ProtectedRoute allowedRoles={['admin','staff']}>
+                  <PageWrapper><Batches batches={batches} setBatches={setBatches} bottles={bottles} setBottles={setBottles} customers={customers} batchRequests={batchRequests} setBatchRequests={setBatchRequests} /></PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/lab" element={
+                <ProtectedRoute allowedRoles={['admin','staff']}>
+                  <PageWrapper><Lab bottles={bottles} setBottles={setBottles} batches={batches} reports={reports} setReports={setReports} /></PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute allowedRoles={['admin','staff','customer']}>
+                  <PageWrapper><Reports
+                    reports={user?.role === 'customer' ? reports.filter(r => r.customer === user?.customerName) : reports}
+                    setReports={setReports} batches={batches} bottles={bottles} setBottles={setBottles}
+                    isCustomer={user?.role === 'customer'}
+                  /></PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/alerts" element={
+                <ProtectedRoute allowedRoles={['admin','staff']}>
+                  <PageWrapper><AlertsPage alerts={alerts} batches={batches} /></PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/customers" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <PageWrapper><Customers customers={customers} setCustomers={setCustomers} batches={batches} bottles={bottles} /></PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <PageWrapper><SettingsPage /></PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/portal" element={
+                <ProtectedRoute allowedRoles={['admin','staff','customer']}>
+                  <PageWrapper>
+                    <CustomerPortal
+                      batches={portalBatches} setBatches={setBatches}
+                      bottles={bottles} setBottles={setBottles}
+                      lockedCustomer={user?.role === 'customer' ? user.customerName : null}
+                    />
+                  </PageWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/unauthorized" element={<Unauthorized />} />
+              <Route path="*" element={<Navigate to={user?.role === 'customer' ? '/dashboard' : '/'} replace />} />
+            </Routes>
+          </div>
         </div>
       </div>
-    </div>
+    </BatchRequestsContext.Provider>
   )
 }
 
@@ -180,7 +217,7 @@ export default function App() {
   return (
     <ToastProvider>
       <Routes>
-        <Route path="/login" element={user ? <Navigate to={user.role === 'customer' ? '/portal' : '/'} replace /> : <LoginPage />} />
+        <Route path="/login" element={user ? <Navigate to={user.role === 'customer' ? '/dashboard' : '/'} replace /> : <LoginPage />} />
         <Route path="/*" element={user ? <AppShell /> : <Navigate to="/login" replace />} />
       </Routes>
     </ToastProvider>

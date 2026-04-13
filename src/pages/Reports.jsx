@@ -3,16 +3,17 @@ import { fmtDate } from '../data/mockData'
 import { SearchBar } from '../components/UI'
 import * as Icons from '../components/Icons'
 
-export default function Reports({ reports, setReports, batches, bottles, setBottles }) {
+export default function Reports({ reports, setReports, batches, bottles, setBottles, isCustomer = false }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
 
-  const filtered = reports.filter(r=>
-    !search ||
-    r.id.toLowerCase().includes(search.toLowerCase()) ||
-    r.customer.toLowerCase().includes(search.toLowerCase()) ||
-    (r.result||'').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = reports.filter(r=> {
+    if (isCustomer && r.status === 'Draft') return false
+    return !search ||
+      r.id.toLowerCase().includes(search.toLowerCase()) ||
+      r.customer.toLowerCase().includes(search.toLowerCase()) ||
+      (r.result||'').toLowerCase().includes(search.toLowerCase())
+  })
 
   function issueReport(id) {
     const report = reports.find(r=>r.id===id)
@@ -37,19 +38,19 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
       {/* Header */}
       <div className="page-header">
         <div>
-          <div className="page-header-tag">Operations</div>
+          <div className="page-header-tag">{isCustomer ? 'My Reports' : 'Operations'}</div>
         <div className="page-header-title">Reports</div>
-          <div className="page-header-sub">View and issue lab reports for tested samples</div>
+          <div className="page-header-sub">{isCustomer ? 'Your lab reports for tested samples' : 'View and issue lab reports for tested samples'}</div>
         </div>
       </div>
 
       {/* Summary */}
       <div className="chip-row">
         {[
-          {label:'Total',   val:reports.length,                                color:'var(--accent)', cls:'chip-accent'},
-          {label:'Draft',   val:reports.filter(r=>r.status==='Draft').length,   color:'var(--blue)',   cls:'chip-blue'  },
+          {label:'Total',   val: isCustomer ? reports.filter(r=>r.status!=='Draft').length : reports.length,  color:'var(--accent)', cls:'chip-accent'},
+          ...(!isCustomer ? [{label:'Draft', val:reports.filter(r=>r.status==='Draft').length, color:'var(--blue)', cls:'chip-blue'}] : []),
           {label:'Issued',  val:reports.filter(r=>r.status==='Issued').length,  color:'var(--green)',  cls:'chip-green' },
-        ].map(s=>(
+        ].map(s=>( 
           <div key={s.label} className="summary-chip">
             <span className="summary-chip-val" style={{color:s.color}}>{s.val}</span>
             <div className="summary-chip-divider" />
@@ -65,7 +66,7 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Report ID</th><th>Customer</th><th>Date</th><th>Result</th><th>Status</th><th>Btl</th></tr>
+              <tr><th>Report ID</th>{!isCustomer && <th>Customer</th>}<th>Date</th><th>Result</th><th>Status</th><th>Btl</th></tr>
             </thead>
             <tbody>
               {filtered.map(r=>(
@@ -74,7 +75,7 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
                   onClick={()=>setSelected(selected===r.id?null:r.id)}
                 >
                   <td><span className="mono" style={{fontSize:11,color:'var(--accent)',fontWeight:600}}>{r.id}</span></td>
-                  <td style={{fontSize:12}}>{r.customer?.split(' ').slice(0,2).join(' ')}</td>
+                  {!isCustomer && <td style={{fontSize:12}}>{r.customer?.split(' ').slice(0,2).join(' ')}</td>}
                   <td style={{fontSize:11,fontFamily:'var(--font-mono)'}}>{fmtDate(r.date)}</td>
                   <td><span className={`badge badge-${r.result==='Normal'?'green':r.result==='Warning'?'amber':'red'}`}>{r.result||'—'}</span></td>
                   <td><span className={`badge badge-${r.status==='Issued'?'green':'blue'}`}>{r.status}</span></td>
@@ -82,7 +83,7 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:12}}>No reports found</td></tr>
+                <tr><td colSpan={isCustomer ? 5 : 6} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:12}}>No reports found</td></tr>
               )}
             </tbody>
           </table>
@@ -138,7 +139,7 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
               </div>
             )}
 
-            {sel.status==='Draft' && (
+            {sel.status==='Draft' && !isCustomer && (
               <button className="btn btn-success w-full" onClick={()=>issueReport(sel.id)}>
                 ✓ Issue Report to Customer
               </button>
@@ -148,7 +149,7 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
           <div className="card" style={{textAlign:'center',padding:'52px 24px'}}>
             <div style={{fontSize:32,marginBottom:12,opacity:0.3}}>◧</div>
             <div style={{fontFamily:'var(--font-display)',fontSize:13,fontWeight:700,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.5px'}}>Select a Report</div>
-            <div style={{fontSize:11,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>Click any row to view details and issue to customer.</div>
+            <div style={{fontSize:11,color:'var(--text-muted)',fontFamily:'var(--font-mono)'}}>{isCustomer ? 'Click any row to view your report details.' : 'Click any row to view details and issue to customer.'}</div>
           </div>
         )}
       </div>
