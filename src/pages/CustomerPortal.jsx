@@ -59,7 +59,17 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
   async function startCamera() {
     setCameraError('')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      // Request high resolution so laptop cameras can focus on small barcodes
+      const constraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width:  { ideal: 1920, min: 640 },
+          height: { ideal: 1080, min: 480 },
+          focusMode: { ideal: 'continuous' },
+          advanced: [{ zoom: 1 }],
+        }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
       setCameraActive(true)
       // Wait for videoRef to be in DOM
@@ -67,6 +77,8 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
         if (videoRef.current) {
           videoRef.current.srcObject = stream
           videoRef.current.play()
+          // Start real barcode detection loop after video is playing
+          videoRef.current.onloadedmetadata = () => startScanLoop()
         }
       }, 100)
     } catch (err) {
@@ -75,6 +87,7 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
   }
 
   function stopCamera() {
+    if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(t => t.stop())
       streamRef.current = null
@@ -82,7 +95,42 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
     setCameraActive(false)
   }
 
-  // Simple simulated camera scan (in real deployment, integrate with ZXing or Quagga.js)
+  // Real barcode detection using BarcodeDetector API (Chrome/Edge built-in)
+  async function startScanLoop() {
+    if (!videoRef.current) return
+    const video = videoRef.current
+
+    if (!('BarcodeDetector' in window)) {
+      setCameraError('Barcode detection not supported in this browser. Try Chrome or Edge, or use a USB scanner.')
+      return
+    }
+
+    let detector
+    try {
+      detector = new window.BarcodeDetector({
+        formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'upc_a', 'upc_e', 'data_matrix', 'pdf417']
+      })
+    } catch {
+      setCameraError('BarcodeDetector could not be initialised. Please use a USB scanner.')
+      return
+    }
+
+    async function tick() {
+      if (!streamRef.current || !videoRef.current) return
+      if (video.readyState < 2) { scanTimerRef.current = setTimeout(tick, 250); return }
+      try {
+        const barcodes = await detector.detect(video)
+        if (barcodes.length > 0) {
+          onChange(barcodes[0].rawValue)
+          stopCamera()
+          return
+        }
+      } catch { /* frame not ready */ }
+      scanTimerRef.current = setTimeout(tick, 250)
+    }
+    scanTimerRef.current = setTimeout(tick, 300)
+  }
+
   function simulateCameraScan() {
     const fakeBarcode = `BTL-${String(bottleNum).padStart(3,'0')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`
     onChange(fakeBarcode)
@@ -197,7 +245,7 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
         }} onClick={e=>e.stopPropagation()}>
           <video
             ref={videoRef}
-            style={{width:'100%',display:'block',maxHeight:160,objectFit:'cover'}}
+            style={{width:'100%',display:'block',maxHeight:280,objectFit:'contain'}}
             playsInline muted
           />
           {/* Scan overlay */}
@@ -206,7 +254,7 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
             alignItems:'center',justifyContent:'center',pointerEvents:'none',
           }}>
             <div style={{
-              width:140,height:60,border:'2px solid rgba(255,255,255,0.7)',borderRadius:6,
+              width:220,height:80,border:'2px solid rgba(255,255,255,0.7)',borderRadius:6,
               boxShadow:'0 0 0 2000px rgba(0,0,0,0.35)',
               position:'relative',
             }}>
@@ -217,7 +265,7 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
               }}/>
             </div>
             <div style={{fontSize:11,color:'rgba(255,255,255,0.85)',marginTop:8,fontWeight:600}}>
-              Align barcode within frame
+              Hold barcode steady inside frame — scanning automatically…
             </div>
           </div>
           <button
