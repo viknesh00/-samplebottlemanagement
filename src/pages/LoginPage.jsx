@@ -57,14 +57,14 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
+      overflow: 'hidden',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '32px 24px',
+      padding: '24px',
       background: '#f0ede8',
       position: 'relative',
-      overflow: 'hidden',
       fontFamily: 'var(--font-body)',
     }}>
       {/* Subtle grid background */}
@@ -80,7 +80,8 @@ export default function LoginPage() {
         gap: '40px',
         width: '100%',
         maxWidth: '1020px',
-        alignItems: 'flex-start',
+        height: '100%',
+        maxHeight: 'calc(100vh - 48px)',
         position: 'relative',
         zIndex: 1,
         animation: 'pageIn 0.5s cubic-bezier(0.16,1,0.3,1) both',
@@ -88,153 +89,162 @@ export default function LoginPage() {
 
         {/* ── LEFT: Login Card ─────────────────────────────────────────────── */}
         <div style={{
-          background: '#ffffff',
-          border: '1.5px solid #e0dcd6',
+          overflowY: 'auto',
           borderRadius: 18,
-          padding: '40px 36px',
-          boxShadow: '0 8px 40px rgba(17,20,24,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
-          position: 'relative',
-          overflow: 'hidden',
           animation: 'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
         }}>
-          {/* Top accent line */}
           <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-            background: 'linear-gradient(90deg, var(--accent) 0%, transparent 100%)',
-            borderRadius: '18px 18px 0 0',
-          }} />
-
-          {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 36 }}>
+            background: '#ffffff',
+            border: '1.5px solid #e0dcd6',
+            borderRadius: 18,
+            padding: '40px 36px',
+            boxShadow: '0 8px 40px rgba(17,20,24,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {/* Top accent line */}
             <div style={{
-              width: 46, height: 46,
-              background: 'var(--accent)',
-              borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 14px rgba(232,93,10,0.32)',
-              position: 'relative', overflow: 'hidden', flexShrink: 0,
-            }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%)' }} />
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" width={22} height={22} style={{ position: 'relative', zIndex: 1 }}>
-                <path d="M9 2h6M10 9l-3 8a2 2 0 001.8 2.8h6.4A2 2 0 0017 17l-3-8V2h-4z" />
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0e1117', letterSpacing: '0.2px', lineHeight: 1.1 }}>
-                VPS LabTrack
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: 'linear-gradient(90deg, var(--accent) 0%, transparent 100%)',
+              borderRadius: '18px 18px 0 0',
+            }} />
+
+            {/* Brand */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 36 }}>
+              <div style={{
+                width: 46, height: 46,
+                background: 'var(--accent)',
+                borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 14px rgba(232,93,10,0.32)',
+                position: 'relative', overflow: 'hidden', flexShrink: 0,
+              }}>
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%)' }} />
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" width={22} height={22} style={{ position: 'relative', zIndex: 1 }}>
+                  <path d="M9 2h6M10 9l-3 8a2 2 0 001.8 2.8h6.4A2 2 0 0017 17l-3-8V2h-4z" />
+                </svg>
               </div>
-              <div style={{ fontSize: 10, color: '#8a919e', textTransform: 'uppercase', letterSpacing: '1.4px', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
-                Oil Sample Management
-              </div>
-            </div>
-          </div>
-
-          {/* Heading */}
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, marginBottom: 6, color: '#0e1117', letterSpacing: '-0.3px' }}>
-              Welcome back
-            </div>
-            <div style={{ fontSize: 14, color: '#8a919e', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-              Sign in to your account to continue
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{
-              background: '#fef2f2', border: '1px solid #fecaca',
-              borderLeft: '3px solid var(--red)',
-              borderRadius: 8, padding: '11px 14px', marginBottom: 20,
-              fontSize: 13, color: '#dc2626',
-              display: 'flex', gap: 9, alignItems: 'center',
-              fontFamily: 'var(--font-body)',
-            }}>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-              {error}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4e5562', marginBottom: 7, letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-              />
-            </div>
-
-            <div style={{ marginBottom: 32 }}>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4e5562', marginBottom: 7, letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  style={{ paddingRight: 46 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(p => !p)}
-                  style={{
-                    position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: '#8a919e', display: 'flex', alignItems: 'center', padding: 2,
-                    transition: 'color 0.15s',
-                  }}
-                >
-                  {showPass
-                    ? <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>
-                    : <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  }
-                </button>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0e1117', letterSpacing: '0.2px', lineHeight: 1.1 }}>
+                  VPS LabTrack
+                </div>
+                <div style={{ fontSize: 10, color: '#8a919e', textTransform: 'uppercase', letterSpacing: '1.4px', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
+                  Oil Sample Management
+                </div>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                background: loading ? '#c44e08' : 'var(--accent)',
-                color: '#fff', border: 'none', borderRadius: 10,
-                padding: '14px', fontSize: 15, fontWeight: 700,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+            {/* Heading */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, marginBottom: 6, color: '#0e1117', letterSpacing: '-0.3px' }}>
+                Welcome back
+              </div>
+              <div style={{ fontSize: 14, color: '#8a919e', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
+                Sign in to your account to continue
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca',
+                borderLeft: '3px solid var(--red)',
+                borderRadius: 8, padding: '11px 14px', marginBottom: 20,
+                fontSize: 13, color: '#dc2626',
+                display: 'flex', gap: 9, alignItems: 'center',
                 fontFamily: 'var(--font-body)',
-                boxShadow: loading ? 'none' : '0 4px 16px rgba(232,93,10,0.38)',
-                letterSpacing: '0.2px',
-                transform: loading ? 'scale(0.98)' : 'scale(1)',
-              }}
-              onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(-1px) scale(1.005)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(232,93,10,0.44)' }}}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(232,93,10,0.38)' }}
-            >
-              {loading ? (
-                <>
-                  <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.35)', borderTopColor: '#fff', borderRadius: '50%' }} className="spin" />
-                  Signing in…
-                </>
-              ) : 'Sign In →'}
-            </button>
-          </form>
+              }}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                {error}
+              </div>
+            )}
 
-          <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid #ede9e2', fontSize: 12, color: '#c0bbb4', textAlign: 'center', fontFamily: 'var(--font-body)' }}>
-            © Natobotics {new Date().getFullYear()}. All rights reserved.
+            {/* Form */}
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4e5562', marginBottom: 7, letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  required
+                />
+              </div>
+
+              <div style={{ marginBottom: 32 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#4e5562', marginBottom: 7, letterSpacing: '0.5px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                  Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                    style={{ paddingRight: 46 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(p => !p)}
+                    style={{
+                      position: 'absolute', right: 13, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#8a919e', display: 'flex', alignItems: 'center', padding: 2,
+                      transition: 'color 0.15s',
+                    }}
+                  >
+                    {showPass
+                      ? <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>
+                      : <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  background: loading ? '#c44e08' : 'var(--accent)',
+                  color: '#fff', border: 'none', borderRadius: 10,
+                  padding: '14px', fontSize: 15, fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  fontFamily: 'var(--font-body)',
+                  boxShadow: loading ? 'none' : '0 4px 16px rgba(232,93,10,0.38)',
+                  letterSpacing: '0.2px',
+                  transform: loading ? 'scale(0.98)' : 'scale(1)',
+                }}
+                onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = 'translateY(-1px) scale(1.005)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(232,93,10,0.44)' }}}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(232,93,10,0.38)' }}
+              >
+                {loading ? (
+                  <>
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.35)', borderTopColor: '#fff', borderRadius: '50%' }} className="spin" />
+                    Signing in…
+                  </>
+                ) : 'Sign In →'}
+              </button>
+            </form>
+
+            <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid #ede9e2', fontSize: 12, color: '#c0bbb4', textAlign: 'center', fontFamily: 'var(--font-body)' }}>
+              © Natobotics {new Date().getFullYear()}. All rights reserved.
+            </div>
           </div>
         </div>
 
         {/* ── RIGHT: Demo Accounts + Role Matrix ─────────────────────────── */}
-        <div style={{ animation: 'slideInRight 0.5s cubic-bezier(0.16,1,0.3,1) 80ms both' }}>
+        <div style={{
+          overflowY: 'auto',
+          paddingRight: 6,
+          animation: 'slideInRight 0.5s cubic-bezier(0.16,1,0.3,1) 80ms both',
+        }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#8a919e', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: 18, fontFamily: 'var(--font-mono)' }}>
             Demo Accounts — Click to auto-fill
           </div>
@@ -338,6 +348,7 @@ export default function LoginPage() {
             borderRadius: 12, padding: '18px 20px',
             boxShadow: '0 2px 8px rgba(17,20,24,0.06)',
             animation: 'slideUp 0.4s cubic-bezier(0.16,1,0.3,1) 300ms both',
+            marginBottom: 8,
           }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#8a919e', textTransform: 'uppercase', letterSpacing: '1.4px', marginBottom: 16, fontFamily: 'var(--font-mono)' }}>
               Role Access Matrix

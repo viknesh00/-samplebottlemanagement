@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Modal } from '../components/UI'
+import { Modal , DatePicker } from '../components/UI'
 import * as Icons from '../components/Icons'
 import {
   ScanBarcode,
@@ -573,7 +573,7 @@ function SendModal({ batch, bottles, onClose, onSubmit }) {
         </div>
         <div className="form-group">
           <label>Sent Date</label>
-          <input type="date" value={form.sentDate} onChange={e => up('sentDate', e.target.value)}/>
+          <DatePicker value={form.sentDate} onChange={v => up('sentDate', v)} />
         </div>
       </div>
     </Modal>

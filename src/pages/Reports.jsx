@@ -1,13 +1,16 @@
 import React, { useState } from 'react'
 import { fmtDate } from '../data/mockData'
-import { SearchBar } from '../components/UI'
+import { SearchBar, useSortPage, SortTh, Pagination } from '../components/UI'
 import * as Icons from '../components/Icons'
+
+const PAGE_SIZE = 15
 
 export default function Reports({ reports, setReports, batches, bottles, setBottles, isCustomer = false }) {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
+  const [pageSize, setPageSize] = useState(15)
 
-  const filtered = reports.filter(r=> {
+  const baseFiltered = reports.filter(r => {
     if (isCustomer && r.status === 'Draft') return false
     return !search ||
       r.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -15,17 +18,18 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
       (r.result||'').toLowerCase().includes(search.toLowerCase())
   })
 
+  const { paged, sortKey, sortDir, toggleSort, page, setPage, totalPages } =
+    useSortPage(baseFiltered, { key: 'date', dir: 'desc' }, pageSize)
+
   function issueReport(id) {
-    const report = reports.find(r=>r.id===id)
-    setReports(p=>p.map(r=>r.id===id ? {...r, status:'Issued'} : r))
+    const report = reports.find(r => r.id === id)
+    setReports(p => p.map(r => r.id === id ? {...r, status:'Issued'} : r))
     if (report?.bottleIds?.length) {
-      setBottles(p=>p.map(b=>
-        report.bottleIds.includes(b.id) ? {...b, status:'Report Ready'} : b
-      ))
+      setBottles(p => p.map(b => report.bottleIds.includes(b.id) ? {...b, status:'Report Ready'} : b))
     }
   }
 
-  const sel = selected ? reports.find(r=>r.id===selected) : null
+  const sel = selected ? reports.find(r => r.id === selected) : null
 
   const RESULT_STYLE = {
     Normal:   { bg:'rgba(10,124,82,0.08)',  border:'rgba(10,124,82,0.3)',  color:'var(--green)'  },
@@ -33,24 +37,26 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
     Critical: { bg:'rgba(212,42,42,0.08)',  border:'rgba(212,42,42,0.3)',  color:'var(--red)'    },
   }
 
+  const TH = ({ label, sk }) => (
+    <SortTh label={label} sortKey={sk} active={sortKey===sk} dir={sortDir} onSort={toggleSort} />
+  )
+
   return (
     <div>
-      {/* Header */}
       <div className="page-header">
         <div>
           <div className="page-header-tag">{isCustomer ? 'My Reports' : 'Operations'}</div>
-        <div className="page-header-title">Reports</div>
+          <div className="page-header-title">Reports</div>
           <div className="page-header-sub">{isCustomer ? 'Your lab reports for tested samples' : 'View and issue lab reports for tested samples'}</div>
         </div>
       </div>
 
-      {/* Summary */}
       <div className="chip-row">
         {[
-          {label:'Total',   val: isCustomer ? reports.filter(r=>r.status!=='Draft').length : reports.length,  color:'var(--accent)', cls:'chip-accent'},
+          {label:'Total',  val: isCustomer ? reports.filter(r=>r.status!=='Draft').length : reports.length, color:'var(--accent)', cls:'chip-accent'},
           ...(!isCustomer ? [{label:'Draft', val:reports.filter(r=>r.status==='Draft').length, color:'var(--blue)', cls:'chip-blue'}] : []),
-          {label:'Issued',  val:reports.filter(r=>r.status==='Issued').length,  color:'var(--green)',  cls:'chip-green' },
-        ].map(s=>( 
+          {label:'Issued', val:reports.filter(r=>r.status==='Issued').length, color:'var(--green)', cls:'chip-green'},
+        ].map(s => (
           <div key={s.label} className="summary-chip">
             <span className="summary-chip-val" style={{color:s.color}}>{s.val}</span>
             <div className="summary-chip-divider" />
@@ -62,18 +68,23 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
       <div style={{marginBottom:14}}><SearchBar value={search} onChange={setSearch} placeholder="Search reports…"/></div>
 
       <div className="grid-2" style={{gap:18,alignItems:'start'}}>
-        {/* Table */}
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Report ID</th>{!isCustomer && <th>Customer</th>}<th>Date</th><th>Result</th><th>Status</th><th>Btl</th></tr>
+              <tr>
+                <TH label="Report ID" sk="id" />
+                {!isCustomer && <TH label="Customer" sk="customer" />}
+                <TH label="Date"   sk="date" />
+                <TH label="Result" sk="result" />
+                <TH label="Status" sk="status" />
+                <th>Btl</th>
+              </tr>
             </thead>
             <tbody>
-              {filtered.map(r=>(
+              {paged.map(r => (
                 <tr key={r.id}
-                  style={{cursor:'pointer',background:selected===r.id?'rgba(232,93,10,0.04)':''}}
-                  onClick={()=>setSelected(selected===r.id?null:r.id)}
-                >
+                  style={{cursor:'pointer', background:selected===r.id?'rgba(232,93,10,0.04)':''}}
+                  onClick={() => setSelected(selected===r.id ? null : r.id)}>
                   <td><span className="mono" style={{fontSize:11,color:'var(--accent)',fontWeight:600}}>{r.id}</span></td>
                   {!isCustomer && <td style={{fontSize:12}}>{r.customer?.split(' ').slice(0,2).join(' ')}</td>}
                   <td style={{fontSize:11,fontFamily:'var(--font-mono)'}}>{fmtDate(r.date)}</td>
@@ -82,11 +93,12 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
                   <td style={{fontWeight:700,fontSize:13,fontFamily:'var(--font-mono)'}}>{r.bottleIds?.length||0}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {paged.length === 0 && (
                 <tr><td colSpan={isCustomer ? 5 : 6} style={{textAlign:'center',padding:'32px',color:'var(--text-muted)',fontFamily:'var(--font-mono)',fontSize:12}}>No reports found</td></tr>
               )}
             </tbody>
           </table>
+          <Pagination page={page} totalPages={totalPages} onPage={setPage} total={baseFiltered.length} pageSize={pageSize} onPageSizeChange={setPageSize} />
         </div>
 
         {/* Detail Panel */}
@@ -96,14 +108,10 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
               <span className="card-title" style={{fontFamily:'var(--font-mono)',fontSize:12,letterSpacing:'0.5px'}}>{sel.id}</span>
               <span className={`badge badge-${sel.status==='Issued'?'green':'blue'}`}>{sel.status}</span>
             </div>
-
-            {/* Customer */}
             <div style={{marginBottom:14,padding:'10px 12px',borderRadius:'var(--r-xs)',background:'var(--bg)',border:'var(--rule)'}}>
               <div className="info-label">Customer</div>
               <div style={{fontWeight:600,fontSize:13.5}}>{sel.customer}</div>
             </div>
-
-            {/* Metrics grid */}
             <div className="grid-2" style={{gap:8,marginBottom:14}}>
               {[
                 {l:'Test Type',  v:sel.testType},
@@ -113,16 +121,14 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
                 {l:'Viscosity',  v:sel.viscosity||'—'},
                 {l:'Moisture',   v:sel.moisture||'—'},
                 {l:'Acidity',    v:sel.acidity||'—'},
-              ].map(({l,v})=>(
+              ].map(({l,v}) => (
                 <div key={l} style={{padding:'9px 11px',background:'var(--bg)',borderRadius:'var(--r-xs)',border:'var(--rule)'}}>
                   <div className="info-label">{l}</div>
-                  <div style={{fontSize:12.5,fontWeight:600,fontFamily:l==='Date'||l==='Viscosity'||l==='Moisture'||l==='Acidity'?'var(--font-mono)':'inherit'}}>{v}</div>
+                  <div style={{fontSize:12.5,fontWeight:600,fontFamily:['Date','Viscosity','Moisture','Acidity'].includes(l)?'var(--font-mono)':'inherit'}}>{v}</div>
                 </div>
               ))}
             </div>
-
-            {/* Result banner */}
-            {sel.result && (()=>{
+            {sel.result && (() => {
               const rs = RESULT_STYLE[sel.result] || RESULT_STYLE.Normal
               return (
                 <div style={{padding:'11px 14px',borderRadius:'var(--r-xs)',marginBottom:14,background:rs.bg,border:`1.5px solid ${rs.border}`,borderLeft:`3px solid ${rs.color}`,display:'flex',alignItems:'center',gap:10}}>
@@ -131,18 +137,14 @@ export default function Reports({ reports, setReports, batches, bottles, setBott
                 </div>
               )
             })()}
-
             {sel.recommendation && (
               <div style={{marginBottom:14}}>
                 <div className="info-label" style={{marginBottom:5}}>Recommendation</div>
                 <div style={{fontSize:12.5,lineHeight:1.6,color:'var(--text-secondary)',background:'var(--bg)',padding:'10px 12px',borderRadius:'var(--r-xs)',border:'var(--rule)'}}>{sel.recommendation}</div>
               </div>
             )}
-
             {sel.status==='Draft' && !isCustomer && (
-              <button className="btn btn-success w-full" onClick={()=>issueReport(sel.id)}>
-                Issue Report to Customer
-              </button>
+              <button className="btn btn-success w-full" onClick={() => issueReport(sel.id)}>Issue Report to Customer</button>
             )}
           </div>
         ) : (
