@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fmtDate, today, SAMPLE_TYPES, bottleStats } from '../data/mockData'
+import { fmtDate, today, SAMPLE_TYPES, bottleStats } from '../utils/constants'
 import { Modal } from '../components/UI'
 import {
   Package, Truck, FlaskConical, FileText, Check,

@@ -4,14 +4,11 @@ import { useAuth } from '../context/AuthContext'
 import * as Icons from './Icons'
 
 const ROUTE_META = {
-  '/':          { title: 'Operations Dashboard', crumb: 'VPS LabTrack › Overview' },
-  '/batches':   { title: 'Batch Management',     crumb: 'VPS LabTrack › Operations' },
-  '/lab':       { title: 'Lab Processing',        crumb: 'VPS LabTrack › Operations' },
-  '/reports':   { title: 'Lab Reports',           crumb: 'VPS LabTrack › Operations' },
-  '/customers': { title: 'Customers',             crumb: 'VPS LabTrack › Management' },
-  '/portal':    { title: 'Customer Portal',       crumb: 'VPS LabTrack › Management' },
-  '/alerts':    { title: 'System Alerts',         crumb: 'VPS LabTrack › Management' },
-  '/settings':  { title: 'Settings',             crumb: 'VPS LabTrack › System'     },
+  '/':          { title: 'Lab Management Dashboard', crumb: 'VPS LabTrack › Overview'        },
+  '/batches':   { title: 'Batches & Dispatch',       crumb: 'VPS LabTrack › Lab Management'  },
+  '/lab':       { title: 'Bottle Tracking',           crumb: 'VPS LabTrack › Lab Management'  },
+  '/alerts':    { title: 'System Alerts',             crumb: 'VPS LabTrack › System'          },
+  '/settings':  { title: 'Settings',                 crumb: 'VPS LabTrack › System'          },
 }
 
 export default function Topbar({ activeBatches, alertCount, totalInTransit, totalInLab }) {
@@ -35,50 +32,50 @@ export default function Topbar({ activeBatches, alertCount, totalInTransit, tota
           <div className="page-crumb">{meta.crumb}</div>
         </div>
 
-        {/* <div className="topbar-divider" />
+        <div className="topbar-divider" />
 
         <div
           className="metric-chip chip-green"
-          onClick={() => goToBatches('active')}
-          title="Click to view active batches"
+          onClick={() => navigate('/batches')}
+          title="Total batches"
           style={{ cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
           onMouseLeave={e => e.currentTarget.style.opacity = '1'}
         >
           <div className="metric-chip-dot" style={{ boxShadow: '0 0 0 3px rgba(10,124,82,0.15)' }} />
           <span className="metric-chip-val">{activeBatches}</span>
-          <span className="metric-chip-lbl">active batches</span>
+          <span className="metric-chip-lbl">batches</span>
         </div>
 
         {totalInTransit > 0 && (
           <div
             className="metric-chip chip-amber"
-            onClick={() => isCustomer ? navigate('/portal') : navigate('/batches', { state: { filter: 'transit' } })}
-            title="Click to view bottles in transit"
+            onClick={() => navigate('/lab')}
+            title="Bottles with customer"
             style={{ cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
           >
             <div className="metric-chip-dot" />
             <span className="metric-chip-val">{totalInTransit}</span>
-            <span className="metric-chip-lbl">in transit</span>
+            <span className="metric-chip-lbl">with customer</span>
           </div>
         )}
 
         {totalInLab > 0 && (
           <div
             className="metric-chip chip-purple"
-            onClick={() => isCustomer ? navigate('/portal') : navigate('/lab')}
-            title="Click to view lab queue"
+            onClick={() => navigate('/lab')}
+            title="Bottles returned to lab"
             style={{ cursor: 'pointer' }}
             onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
           >
             <div className="metric-chip-dot" />
             <span className="metric-chip-val">{totalInLab}</span>
-            <span className="metric-chip-lbl">in lab</span>
+            <span className="metric-chip-lbl">returned</span>
           </div>
-        )} */}
+        )}
       </div>
 
       <div className="topbar-right">

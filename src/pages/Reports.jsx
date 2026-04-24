@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { fmtDate } from '../data/mockData'
+import { fmtDate } from '../utils/constants'
 import { SearchBar, useSortPage, SortTh, Pagination } from '../components/UI'
 import * as Icons from '../components/Icons'
 

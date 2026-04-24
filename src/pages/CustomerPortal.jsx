@@ -6,8 +6,9 @@ import {
   Usb,
   Camera,
   CameraOff,
+  X as XIcon,
 } from 'lucide-react'
-import { COURIERS, SAMPLE_TYPES, fmtDate, today, uid, bottleStats, BOTTLE_STATUSES } from '../data/mockData'
+import { COURIERS, SAMPLE_TYPES, fmtDate, today, uid, bottleStats, BOTTLE_STATUSES } from '../utils/constants'
 import { useAuth } from '../context/AuthContext'
 import { useBatchRequests } from '../App'
 
@@ -246,9 +247,9 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
           title={scannerActive ? 'Click when done scanning' : 'Activate USB/Bluetooth scanner mode'}
           style={{
             padding:'0 10px', borderRadius:'var(--r-sm)',
-            border: `1.5px solid ${scannerActive ? 'var(--accent)' : 'var(--border)'}`,
-            background: scannerActive ? 'var(--accent)' : '#fff',
-            color: scannerActive ? '#fff' : 'var(--text-muted)',
+            border: `1.5px solid ${scannerActive ? '#FF4717' : '#1A1A31'}`,
+            background: scannerActive ? '#FF4717' : '#fff',
+            color: scannerActive ? '#fff' : '#1A1A31',
             cursor:'pointer', fontSize:11, fontWeight:600, whiteSpace:'nowrap',
             display:'flex', alignItems:'center', gap:4, transition:'all 0.15s', flexShrink:0,
           }}
@@ -267,9 +268,9 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
           title="Scan barcode with camera"
           style={{
             padding:'0 10px', borderRadius:'var(--r-sm)',
-            border: `1.5px solid ${cameraActive ? 'var(--blue)' : 'var(--border)'}`,
-            background: cameraActive ? 'var(--blue)' : '#fff',
-            color: cameraActive ? '#fff' : 'var(--text-muted)',
+            border: `1.5px solid ${cameraActive ? '#FF4717' : '#1A1A31'}`,
+            background: cameraActive ? '#FF4717' : '#fff',
+            color: cameraActive ? '#fff' : '#1A1A31',
             cursor:'pointer', fontSize:11, fontWeight:600,
             display:'flex', alignItems:'center', gap:4, transition:'all 0.15s', flexShrink:0,
           }}
@@ -349,8 +350,8 @@ function BarcodeInput({ value, onChange, placeholder, bottleNum }) {
             style={{
               position:'absolute', bottom:8, right:8,
               padding:'6px 14px', borderRadius:20,
-              background:'var(--blue)', color:'#fff',
-              border:'none', cursor:'pointer', fontSize:12, fontWeight:700,
+              background:'#FF4717', color:'#fff',
+              border:'1.5px solid #FF4717', cursor:'pointer', fontSize:12, fontWeight:700,
               boxShadow:'0 2px 8px rgba(0,0,0,0.3)',
             }}
           >
@@ -391,11 +392,11 @@ function CollectModal({ batch, bottles, onClose, onSubmit }) {
     <Modal open onClose={onClose} title={`Mark Bottles as Collected — ${batch.id}`} large
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button onClick={onClose} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#fff", border:"1.5px solid #1A1A31", borderRadius:8, color:"#1A1A31", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>Cancel</button>
           <button
-            className="btn btn-primary"
             onClick={() => { onSubmit(selected, locations, bottleIds); onClose() }}
             disabled={!allHaveLocation}
+            style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer", opacity:!allHaveLocation?0.5:1 }}
           >
             🧪 Mark {selected.length} Bottle{selected.length !== 1 ? 's' : ''} Collected
           </button>
@@ -430,7 +431,7 @@ function CollectModal({ batch, bottles, onClose, onSubmit }) {
               style={{flex:1, marginBottom:0}}
               onKeyDown={e => { if (e.key === 'Enter') applyGlobal() }}
             />
-            <button className="btn btn-ghost btn-sm" onClick={applyGlobal}>Apply to All</button>
+            <button onClick={applyGlobal} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", background:"#fff", border:"1.5px solid #1A1A31", borderRadius:7, color:"#1A1A31", fontWeight:700, fontSize:12, cursor:"pointer" }}>Apply to All</button>
           </div>
         </div>
       )}
@@ -523,11 +524,11 @@ function SendModal({ batch, bottles, onClose, onSubmit }) {
     <Modal open onClose={onClose} title={`Send Bottles to VPS Lab — ${batch.id}`}
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button onClick={onClose} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#fff", border:"1.5px solid #1A1A31", borderRadius:8, color:"#1A1A31", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>Cancel</button>
           <button
-            className="btn btn-primary"
             onClick={() => { onSubmit(selected, form); onClose() }}
             disabled={selected.length === 0 || !form.awb.trim()}
+            style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer", opacity:(selected.length===0||!form.awb.trim())?0.5:1 }}
           >
             📦 Send {selected.length} Bottle{selected.length !== 1 ? 's' : ''} to VPS
           </button>
@@ -594,7 +595,8 @@ function BottleGrid({ batchId, bottles }) {
             title={`Bottle #${b.bottleNum}: ${b.status}${b.location ? ` — ${b.location}` : ''}`}
             style={{padding:'8px 6px', borderRadius:'var(--r)', background:sc.bg, border:`1.5px solid ${sc.border}`, textAlign:'center'}}
           >
-            <div style={{fontSize:10, fontFamily:'var(--font-mono)', color:sc.color, fontWeight:700, marginBottom:3}}>#{b.bottleNum}</div>
+            <div style={{fontSize:10, fontFamily:'var(--font-mono)', color:sc.color, fontWeight:700, marginBottom:2}}>#{b.bottleNum}</div>
+            <div style={{fontSize:7.5, fontFamily:'var(--font-mono)', color:sc.color, opacity:0.75, fontWeight:600, marginBottom:3, wordBreak:'break-all', lineHeight:1.2}}>{b.id}</div>
             <div style={{fontSize:9, color:sc.color, fontWeight:600, lineHeight:1.2}}>{b.status}</div>
           </div>
         )
@@ -626,17 +628,45 @@ function BatchBottleStats({ batchId, bottles }) {
   )
 }
 
-// ── Request Batch Modal ───────────────────────────────────────────────────────
-function RequestBatchModal({ lockedCustomer, onClose, onSubmit }) {
+// ── Request Batch Modal (Customer) ───────────────────────────────────────────
+function RequestBatchModal({ lockedCustomer, customerAssets, onClose, onSubmit }) {
   const [form, setForm] = React.useState({
-    sampleType:'Transformer Oil', qty:12, location:'', notes:'', priority:'normal', urgentReason:'',
+    sampleType:'Transformer Oil', location:'', notes:'', priority:'normal', urgentReason:'',
+    assetItems: [],
   })
   const up = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
+  const totalQty = form.assetItems.reduce((s, i) => s + (i.qty || 0), 0)
+
+  function addAssetItem() {
+    setForm(p => ({
+      ...p,
+      assetItems: [...p.assetItems, { id: Date.now(), assetId: '', assetName: '', serialNumber: '', sampleType: 'Transformer Oil', qty: '' }],
+    }))
+  }
+
+  function removeAssetItem(idx) {
+    setForm(p => ({ ...p, assetItems: p.assetItems.filter((_, i) => i !== idx) }))
+  }
+
+  function updateAssetItem(idx, patch) {
+    setForm(p => ({ ...p, assetItems: p.assetItems.map((item, i) => i === idx ? { ...item, ...patch } : item) }))
+  }
+
+  const canSubmit = form.location.trim() && form.assetItems.length > 0 &&
+    form.assetItems.every(i => i.assetId && i.qty > 0)
+
   function submit() {
-    if (!form.location.trim()) return
+    if (!canSubmit) return
     const today2 = new Date().toISOString().slice(0, 10)
-    onSubmit({ ...form, customer:lockedCustomer, requestedDate:today2, id:`REQ-${Date.now()}`, status:'Pending' })
+    onSubmit({
+      ...form,
+      qty: totalQty,
+      customer: lockedCustomer,
+      requestedDate: today2,
+      id: `REQ-${Date.now()}`,
+      status: 'Pending',
+    })
     onClose()
   }
 
@@ -644,28 +674,123 @@ function RequestBatchModal({ lockedCustomer, onClose, onSubmit }) {
     <Modal open onClose={onClose} title="Request New Sample Batch from VPS Lab"
       footer={
         <>
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={submit} disabled={!form.location.trim()}>
-            📋 Submit Request
+          <button onClick={onClose} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#fff", border:"1.5px solid #1A1A31", borderRadius:8, color:"#1A1A31", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>Cancel</button>
+          <button onClick={submit} disabled={!canSubmit} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer", opacity:!canSubmit?0.5:1 }}>
+            📋 Submit Request ({totalQty > 0 ? `${totalQty} bottles` : '—'})
           </button>
         </>
       }
     >
-      <div className="alert alert-blue" style={{marginBottom:20}}>
+      <div className="alert alert-blue" style={{marginBottom:16}}>
         <Icons.Flask/>
         <span style={{fontSize:12.5}}>VPS Lab will review your request and dispatch bottles within 1–2 business days.</span>
       </div>
+
+      {/* Step 1: Assets */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+          padding: '7px 12px', background: 'rgba(255,71,23,0.05)', borderRadius: 'var(--r)',
+          border: '1px solid rgba(255,71,23,0.18)',
+        }}>
+          <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#FF4717', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>1</div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#FF4717', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Assets &amp; Bottle Count</span>
+          {totalQty > 0 && (
+            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, fontFamily: 'var(--font-display)', color: '#FF4717' }}>
+              {totalQty} total bottles
+            </span>
+          )}
+        </div>
+
+        {customerAssets.length === 0 ? (
+          <div style={{ padding: '14px', textAlign: 'center', color: 'var(--amber)', fontSize: 12.5, border: '1.5px dashed rgba(201,122,6,0.3)', borderRadius: 'var(--r)', background: 'rgba(201,122,6,0.04)' }}>
+            ⚠ No assets registered for your account. Please contact VPS Lab.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+              {form.assetItems.map((item, idx) => {
+                const selectedAsset = customerAssets.find(a => a.id === item.assetId)
+                return (
+                  <div key={item.id} style={{
+                    display: 'grid', gridTemplateColumns: '1fr 110px 32px',
+                    gap: 8, alignItems: 'end',
+                    padding: '10px 12px',
+                    background: 'rgba(255,71,23,0.04)',
+                    border: '1px solid rgba(255,71,23,0.15)',
+                    borderRadius: 'var(--r)',
+                  }}>
+                    <div>
+                      <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4, display: 'block' }}>
+                        Asset / Equipment
+                      </label>
+                      <select
+                        value={item.assetId}
+                        onChange={e => {
+                          const a = customerAssets.find(x => x.id === e.target.value)
+                          if (a) updateAssetItem(idx, { assetId: a.id, assetName: a.name, serialNumber: a.serialNumber, sampleType: a.sampleType })
+                        }}
+                        style={{ fontSize: 12.5, padding: '6px 9px', width: '100%' }}
+                      >
+                        <option value="">— Select Asset —</option>
+                        {customerAssets.map(a => (
+                          <option key={a.id} value={a.id}>{a.name} ({a.serialNumber})</option>
+                        ))}
+                      </select>
+                      {selectedAsset && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                          <span style={{ fontSize: 9.5, fontFamily: 'var(--font-mono)', color: '#FF4717', fontWeight: 700 }}>{selectedAsset.serialNumber}</span>
+                          <span style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>·</span>
+                          <span style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{selectedAsset.sampleType}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 4, display: 'block' }}>
+                        Bottles
+                      </label>
+                      <input
+                        type="number" min={1} max={200}
+                        value={item.qty}
+                        onChange={e => updateAssetItem(idx, { qty: e.target.value === '' ? '' : Math.max(1, +e.target.value) })}
+                        placeholder="—"
+                        style={{ fontSize: 13, padding: '6px 9px', textAlign: 'center', fontWeight: 700 }}
+                      />
+                    </div>
+                    <button onClick={() => removeAssetItem(idx)} style={{
+                      width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(26,26,49,0.06)', border: '1px solid rgba(26,26,49,0.2)',
+                      borderRadius: 'var(--r-xs)', cursor: 'pointer', color: '#1A1A31',
+                    }}>
+                      <XIcon size={12} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <button onClick={addAssetItem} style={{
+              width: '100%', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, background: 'var(--bg)', border: '1.5px dashed rgba(255,71,23,0.35)',
+              borderRadius: 'var(--r)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              color: '#FF4717',
+            }}>
+              <Icons.Plus /> Add Another Asset
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Step 2: Details */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10,
+        padding: '7px 12px', background: 'rgba(255,71,23,0.05)', borderRadius: 'var(--r)',
+        border: '1px solid rgba(255,71,23,0.18)',
+      }}>
+        <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#FF4717', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800 }}>2</div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#FF4717', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dispatch Details</span>
+      </div>
+
       <div className="grid-2">
-        <div className="form-group">
-          <label>Sample Type *</label>
-          <select value={form.sampleType} onChange={e => up('sampleType', e.target.value)}>
-            {SAMPLE_TYPES.map(t => <option key={t}>{t}</option>)}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Number of Bottles *</label>
-          <input type="number" min={1} max={100} value={form.qty} onChange={e => up('qty', +e.target.value)}/>
-        </div>
         <div className="form-group">
           <label>Priority</label>
           <select value={form.priority} onChange={e => up('priority', e.target.value)}>
@@ -687,14 +812,128 @@ function RequestBatchModal({ lockedCustomer, onClose, onSubmit }) {
       )}
       <div className="form-group">
         <label>Additional Notes</label>
-        <textarea value={form.notes} onChange={e => up('notes', e.target.value)} rows={3}/>
+        <textarea value={form.notes} onChange={e => up('notes', e.target.value)} rows={2}/>
       </div>
     </Modal>
   )
 }
 
+// ── Bottle Lookup by Barcode / Bottle ID ─────────────────────────────────────
+const STATUS_COLORS_LOOKUP = {
+  'Empty':        { bg:'#f3f4f6', color:'#6b7280', border:'#e5e7eb' },
+  'Collected':    { bg:'#eff6ff', color:'#2563eb', border:'#bfdbfe' },
+  'Sent to VPS':  { bg:'#fffbeb', color:'#d97706', border:'#fde68a' },
+  'In Lab':       { bg:'#f5f3ff', color:'#7c3aed', border:'#ddd6fe' },
+  'Tested':       { bg:'#ecfeff', color:'#0891b2', border:'#a5f3fc' },
+  'Report Ready': { bg:'#f0fdf4', color:'#059669', border:'#a7f3d0' },
+}
+
+function BottleLookupPanel({ bottles, batches }) {
+  const [query, setQuery] = React.useState('')
+  const [result, setResult] = React.useState(null) // null | false | bottle
+  const inputRef = React.useRef(null)
+
+  function lookup(val) {
+    const q = (val || query).trim()
+    if (!q) return
+    // Match by bottle ID (exact or partial), or bottleBarcode
+    const found = bottles.find(b =>
+      b.id === q ||
+      b.id.toLowerCase().includes(q.toLowerCase()) ||
+      (b.bottleBarcode && b.bottleBarcode === q)
+    )
+    setResult(found || false)
+  }
+
+  const sc = result ? (STATUS_COLORS_LOOKUP[result.status] || STATUS_COLORS_LOOKUP['Empty']) : null
+  const batchOfBottle = result ? batches.find(b => b.id === result.batchId) : null
+
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div style={{ padding: '13px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icons.ScanBarcode size={16} color="var(--accent)" strokeWidth={2} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Bottle Lookup — Scan Barcode</span>
+        <span style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>Scan or type a Bottle ID to see its details</span>
+      </div>
+      <div style={{ padding: '14px 20px' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: result !== null ? 14 : 0 }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') lookup() }}
+            placeholder="Scan barcode or type Bottle ID (e.g. VPS-2025-001-B01)…"
+            style={{ flex: 1, marginBottom: 0, fontFamily: 'var(--font-mono)', fontSize: 12 }}
+            autoFocus={false}
+          />
+          <button onClick={() => lookup()} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:7, color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer", whiteSpace:"nowrap" }}>
+            🔍 Look Up
+          </button>
+          {result !== null && (
+            <button onClick={() => { setQuery(''); setResult(null) }} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", background:"#fff", border:"1.5px solid #1A1A31", borderRadius:7, color:"#1A1A31", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+              Clear
+            </button>
+          )}
+        </div>
+
+        {result === false && (
+          <div style={{ padding: '12px 14px', borderRadius: 'var(--r)', background: 'rgba(212,42,42,0.05)', border: '1px solid rgba(212,42,42,0.2)', fontSize: 12.5, color: 'var(--red)' }}>
+            ❌ No bottle found for "<strong>{query}</strong>". Check the ID and try again.
+          </div>
+        )}
+
+        {result && sc && (
+          <div style={{ padding: '14px 16px', borderRadius: 'var(--r)', background: sc.bg, border: `1.5px solid ${sc.border}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 22 }}>🧪</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                  {result.id}
+                </div>
+                <span style={{
+                  fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20,
+                  background: '#fff', color: sc.color, border: `1.5px solid ${sc.border}`,
+                }}>{result.status}</span>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px', fontSize: 12.5 }}>
+              <div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Customer</div>
+                <strong>{batchOfBottle?.customer || '—'}</strong>
+              </div>
+              <div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Asset Name</div>
+                <strong>{result.assetName || '—'}</strong>
+              </div>
+              <div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}> Serial No.</div>
+                <strong style={{ color: '#FF4717', fontFamily: 'var(--font-mono)' }}>{result.serialNumber || '—'}</strong>
+              </div>
+              <div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Bottle #</div>
+                <strong>#{String(result.bottleNum).padStart(3, '0')}</strong>
+              </div>
+              <div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Batch</div>
+                <strong style={{ fontFamily: 'var(--font-mono)', color: '#FF4717' }}>{result.batchId}</strong>
+              </div>
+              {result.location && (
+                <div>
+                  <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Location</div>
+                  <strong>{result.location}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main CustomerPortal ───────────────────────────────────────────────────────
-export default function CustomerPortal({ batches, setBatches, bottles, setBottles, lockedCustomer=null }) {
+export default function CustomerPortal({ batches, setBatches, bottles, setBottles, lockedCustomer=null, customers=[] }) {
   const { user } = useAuth()
   const { batchRequests, setBatchRequests } = useBatchRequests()
 
@@ -708,6 +947,10 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
   const activeCustomer = lockedCustomer || selected
   const myBatches = batches.filter(b => b.customer === activeCustomer)
 
+  // Get this customer's registered assets from the customers list
+  const customerRecord = customers.find(c => c.name === activeCustomer)
+  const customerAssets = customerRecord?.assets || []
+
   const myPendingRequests  = batchRequests.filter(r => r.customer === activeCustomer && r.status === 'Pending')
   const myApprovedRequests = batchRequests.filter(r => r.customer === activeCustomer && r.status === 'Approved')
 
@@ -715,16 +958,44 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
     setBatches(p => p.map(b => b.id === batchId ? { ...b, stage:1, receivedDate:today() } : b))
     const batch = batches.find(b => b.id === batchId)
     if (batch) {
-      const newBottles = Array.from({ length:batch.qty }, (_, i) => ({
-        id:`${batchId}-B${String(i+1).padStart(2,'0')}`,
-        batchId, bottleNum:i+1, status:'Empty',
-        location:'', collectedDate:null, sentDate:null,
-        receivedByLabDate:null, testedDate:null,
-        reportId:null, technician:null,
-        viscosity:null, moisture:null, acidity:null,
-        result:null, recommendation:null, bottleBarcode:null,
-      }))
-      setBottles(p => [...newBottles, ...p])
+      // Only create bottles if none exist yet (admin may have already created them)
+      const existingBottles = bottles.filter(b => b.batchId === batchId)
+      if (existingBottles.length === 0) {
+        const assetItems = batch.assetItems || []
+        let bottleNum = 1
+        const newBottles = []
+        if (assetItems.length > 0) {
+          assetItems.forEach(ai => {
+            for (let i = 0; i < ai.qty; i++) {
+              newBottles.push({
+                id:`${batchId}-B${String(bottleNum).padStart(2,'0')}`,
+                batchId, bottleNum, status:'Empty',
+                assetId: ai.assetId, assetName: ai.assetName, serialNumber: ai.serialNumber,
+                location:'', collectedDate:null, sentDate:null,
+                receivedByLabDate:null, testedDate:null,
+                reportId:null, technician:null,
+                viscosity:null, moisture:null, acidity:null,
+                result:null, recommendation:null, bottleBarcode:null,
+              })
+              bottleNum++
+            }
+          })
+        } else {
+          // Fallback: create generic bottles if no asset items
+          for (let i = 0; i < batch.qty; i++) {
+            newBottles.push({
+              id:`${batchId}-B${String(i+1).padStart(2,'0')}`,
+              batchId, bottleNum:i+1, status:'Empty',
+              location:'', collectedDate:null, sentDate:null,
+              receivedByLabDate:null, testedDate:null,
+              reportId:null, technician:null,
+              viscosity:null, moisture:null, acidity:null,
+              result:null, recommendation:null, bottleBarcode:null,
+            })
+          }
+        }
+        setBottles(p => [...newBottles, ...p])
+      }
       setBatchRequests(p => p.map(r => r.batchId === batchId ? { ...r, status:'Fulfilled' } : r))
     }
   }
@@ -755,8 +1026,10 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
     setBatchRequests(p => [...p, req])
   }
 
+  // Look up the customer's registered assets from customers data (if available)
+
   return (
-    <div>
+    <div style={{fontFamily:"'Noto Sans', 'Segoe UI', Arial, sans-serif"}}>
       <div className="page-header" style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:12}}>
         <div>
           <div className="page-header-tag">Batches</div>
@@ -774,7 +1047,7 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
               <span style={{fontSize:15}}>⏳</span> Request pending approval
             </div>
           ) : (
-            <button className="btn btn-primary" onClick={() => setRequestModal(true)}>
+            <button onClick={() => setRequestModal(true)} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>
               <Icons.Plus/> Request New Batch
             </button>
           )
@@ -796,6 +1069,9 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
           </select>
         </div>
       )}
+
+      {/* Bottle Lookup Panel */}
+      <BottleLookupPanel bottles={bottles} batches={batches} />
 
       {/* Pending requests banner */}
       {myPendingRequests.length > 0 && (
@@ -845,14 +1121,14 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
             </div>
 
             {b.stage === 0 && (
-              <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:16, padding:'12px 16px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:'var(--r)'}}>
-                <div style={{width:32, height:32, borderRadius:'50%', background:'var(--amber)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, flexShrink:0}}>1</div>
+              <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:16, padding:'12px 16px', background:'rgba(255,71,23,0.05)', border:'1px solid rgba(255,71,23,0.2)', borderRadius:'var(--r)'}}>
+                <div style={{width:32, height:32, borderRadius:'50%', background:'#FF4717', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, flexShrink:0}}>1</div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:600, fontSize:13}}>Bottles dispatched by VPS Lab</div>
                   <div style={{fontSize:12, color:'var(--text-muted)'}}>{fmtDate(b.dispatched)} · {b.courier} · {b.awb}</div>
                 </div>
                 <div style={{width:40, height:2, background:'var(--border)'}}/>
-                <div style={{width:32, height:32, borderRadius:'50%', background:'var(--border)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-muted)', fontSize:14, flexShrink:0}}>2</div>
+                <div style={{width:32, height:32, borderRadius:'50%', background:'rgba(26,26,49,0.08)', display:'flex', alignItems:'center', justifyContent:'center', color:'#1A1A31', fontSize:14, flexShrink:0}}>2</div>
                 <div style={{fontSize:13, color:'var(--text-muted)'}}>Awaiting your confirmation…</div>
               </div>
             )}
@@ -861,17 +1137,17 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
 
             <div className="flex gap-3" style={{flexWrap:'wrap', marginBottom:b.stage===1 && s.total > 0 ? 12 : 0}}>
               {b.stage === 0 && (
-                <button className="btn btn-primary" onClick={() => acknowledgeReceipt(b.id)}>
+                <button onClick={() => acknowledgeReceipt(b.id)} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>
                   ✓ Acknowledge Receipt of {b.qty} Bottles
                 </button>
               )}
               {b.stage === 1 && s.empty > 0 && (
-                <button className="btn btn-primary" onClick={() => setCollectModal(b)}>
+                <button onClick={() => setCollectModal(b)} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>
                   🧪 Mark Bottles as Collected ({s.empty} empty)
                 </button>
               )}
               {b.stage === 1 && s.collected > 0 && (
-                <button className="btn btn-ghost" style={{borderColor:'var(--amber)', color:'#b45309'}} onClick={() => setSendModal(b)}>
+                <button onClick={() => setSendModal(b)} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 18px", background:"#FF4717", border:"1.5px solid #FF4717", borderRadius:8, color:"#fff", fontWeight:700, fontSize:12.5, cursor:"pointer" }}>
                   📦 Send to VPS Lab ({s.collected} ready)
                 </button>
               )}
@@ -885,9 +1161,7 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
             {b.stage === 1 && s.total > 0 && (
               <>
                 <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setExpandedBatch(isExpanded ? null : b.id)}
-                  style={{marginBottom: isExpanded ? 12 : 0}}
+                  onClick={() => setExpandedBatch(isExpanded ? null : b.id)} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"6px 14px", background:"#fff", border:"1.5px solid #1A1A31", borderRadius:7, color:"#1A1A31", fontWeight:700, fontSize:12, cursor:"pointer", marginBottom:isExpanded?12:0 }}
                 >
                   {isExpanded ? '▲ Hide' : '▼ Show'} all {s.total} bottles
                 </button>
@@ -927,6 +1201,7 @@ export default function CustomerPortal({ batches, setBatches, bottles, setBottle
       {requestModal && lockedCustomer && !hasPendingRequest && (
         <RequestBatchModal
           lockedCustomer={lockedCustomer}
+          customerAssets={customerAssets}
           onClose={() => setRequestModal(false)}
           onSubmit={handleRequest}
         />

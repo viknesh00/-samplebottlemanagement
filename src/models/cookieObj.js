@@ -1,0 +1,18 @@
+export const cookieObj = {
+  name: '',
+  username: '',
+  type: '',
+  token: '',
+  clientId: '',
+  userRole: '',
+  clientName: '',
+  profileImg: '',
+  expiration: '',
+  assetTypes: [],
+  serviceTypes: [],
+  resetPassword: '',
+  bM_ACCESS_STATUS: '',
+  fdR_ACCESS_STATUS: '',
+  defaultTab: '',
+  devicechanged: '',
+}

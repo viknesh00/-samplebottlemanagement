@@ -1,319 +1,382 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fmtDate } from '../data/mockData'
-import { DonutChart, MultiSegBar } from '../components/UI'
+import { fmtDate, daysSince, BATCH_LIFECYCLE } from '../utils/constants'
+import { ScannerPanel } from './Batches'
 import {
-  Package, Truck, FlaskConical, FileText,
-  AlertTriangle, CheckCircle2, Clock, TriangleAlert,
-  ClipboardList, Inbox, ChevronDown, ChevronRight,
-  ArrowRight, Bell,
+  Plus, ScanLine, Package, ArrowLeft, ArrowRight,
+  TrendingUp, Activity, ChevronRight, Bell, Check,
+  Layers, Inbox, RotateCcw,
 } from 'lucide-react'
-import * as Icons from '../components/Icons'
+import {
+  getDashboard, getAlerts, markAlertRead,
+  normaliseApiBatch, normaliseApiAlert,
+} from '../services/LabTrackApi'
+import { useToast } from '../App'
 
-/* ── KPI Card ─────────────────────────────────────────────────────────────── */
-function KPICard({ icon: Icon, value, label, sub, color, bg, onClick, delay = 0 }) {
+/* ── Animated counter ─────────────────────────────────────────────── */
+function CountUp({ value, color }) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    let s = 0
+    const step = Math.max(1, Math.ceil(value / 20))
+    const t = setInterval(() => {
+      s = Math.min(s + step, value); setN(s)
+      if (s >= value) clearInterval(t)
+    }, 25)
+    return () => clearInterval(t)
+  }, [value])
+  return <span style={{ color }}>{n}</span>
+}
+
+/* ── KPI card ─────────────────────────────────────────────────────── */
+function KPICard({ value, label, sub, color, bg, border, icon: Icon, onClick, delay = 0 }) {
   return (
-    <div className="kpi-card anim-slide-up"
-      onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default', animationDelay: `${delay}ms` }}>
-      <div className="kpi-accent-line" style={{ background: color }} />
-      <div className="kpi-icon" style={{ background: bg, color }}>
-        <Icon size={20} strokeWidth={2} />
+    <div onClick={onClick} style={{
+      background: '#fff', border: `1px solid ${border}`, borderRadius: 14, padding: '18px 20px',
+      cursor: onClick ? 'pointer' : 'default', position: 'relative', overflow: 'hidden',
+      transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(14,17,23,0.05)',
+      animation: `slideUp 0.4s cubic-bezier(0.16,1,0.3,1) ${delay}ms both`,
+    }}
+      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(14,17,23,0.1)' } }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(14,17,23,0.05)' }}
+    >
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: '14px 14px 0 0' }} />
+      <div style={{ position: 'absolute', right: -4, top: 10, opacity: 0.05 }}><Icon size={64} strokeWidth={1} color={color} /></div>
+      <div style={{ width: 36, height: 36, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+        <Icon size={17} color={color} strokeWidth={2} />
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 34, fontWeight: 900, lineHeight: 1, letterSpacing: '-1px', marginBottom: 5 }}>
+        <CountUp value={value} color={color} />
+      </div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-primary)', marginBottom: 2 }}>{label}</div>
+      {sub && <div style={{ fontSize: 9.5, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{sub}</div>}
+    </div>
+  )
+}
+
+function StagePill({ stage }) {
+  const s = BATCH_LIFECYCLE[stage ?? 0]
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: s.bg, color: s.color, border: `1px solid ${s.color}30`, whiteSpace: 'nowrap' }}>
+      <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color }} />
+      {s.short}
+    </span>
+  )
+}
+
+function BatchRow({ batch, bottles, onNavigate }) {
+  // Support both camelCase (live API) and PascalCase (legacy)
+  const withCust = batch.withCustomerCount ?? batch.WithCustomerCount ?? 0
+  const returned = batch.returnedCount     ?? batch.ReturnedCount     ?? 0
+  const total    = batch.totalBottles      ?? batch.TotalBottles      ?? 0
+  const pct      = total > 0 ? Math.round((returned / total) * 100) : 0
+  const allDone  = withCust === 0 && total > 0
+
+  return (
+    <div onClick={onNavigate}
+      style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 28px', alignItems: 'center', gap: 10, padding: '11px 18px', cursor: 'pointer', borderBottom: '1px solid var(--border-light)', transition: 'background 0.13s' }}
+      onMouseEnter={e => e.currentTarget.style.background = '#faf8f5'}
+      onMouseLeave={e => e.currentTarget.style.background = ''}>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, fontWeight: 800, color: 'var(--accent)' }}>{(batch.batchCode ?? batch.BatchCode)}</span>
+          <StagePill stage={['Order Placed','Dispatched','In Transit','Delivered'].indexOf((batch.batchStatus ?? batch.BatchStatus))} />
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{((batch.customerName ?? batch.CustomerName) || '')}</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: 'var(--accent)', lineHeight: 1 }}>{total}</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: 'var(--amber)', lineHeight: 1 }}>{withCust}</div>
+      </div>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: 'var(--green)', lineHeight: 1 }}>{returned}</div>
       </div>
       <div>
-        <div className="kpi-value" style={{ color }}>{value}</div>
-        <div className="kpi-label">{label}</div>
-        {sub && <div className="kpi-sub">{sub}</div>}
-      </div>
-    </div>
-  )
-}
-
-/* ── Batch Box ────────────────────────────────────────────────────────────── */
-function BatchBox({ icon: Icon, value, label, sub, iconColor }) {
-  return (
-    <div style={{
-      padding: '14px 16px', borderRadius: 'var(--r-sm)',
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      borderLeft: `3px solid ${iconColor}`,
-      display: 'flex', alignItems: 'center', gap: 14,
-    }}>
-      <div style={{ width: 40, height: 40, borderRadius: 'var(--r-xs)', background: `${iconColor}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={18} color={iconColor} strokeWidth={2} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
-        {sub && <div style={{ fontSize: 10.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
-      </div>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: 32, fontWeight: 800, color: iconColor, lineHeight: 1, flexShrink: 0 }}>{value}</div>
-    </div>
-  )
-}
-
-/* ── Alert Item ───────────────────────────────────────────────────────────── */
-function AlertItem({ alert }) {
-  const isRed = alert.severity === 'red'
-  return (
-    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border-light)' }}>
-      <div style={{ color: isRed ? 'var(--red)' : 'var(--amber)', flexShrink: 0, marginTop: 1 }}>
-        <AlertTriangle size={14} strokeWidth={2} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 2 }}>
-          {alert.customer?.split(' ').slice(0, 2).join(' ')}
-          <span className="mono" style={{ fontSize: 9.5, color: 'var(--text-muted)', marginLeft: 6 }}>{alert.batch}</span>
-        </div>
-        <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', lineHeight: 1.45, fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {alert.msg?.slice(0, 72)}{alert.msg?.length > 72 ? '…' : ''}
-        </div>
-      </div>
-      <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', flexShrink: 0 }}>{alert.age}</span>
-    </div>
-  )
-}
-
-/* ── Report Row ───────────────────────────────────────────────────────────── */
-function ReportRow({ r, bottles = [] }) {
-  const resultBadge = r.result === 'Normal' ? 'badge-green' : r.result === 'Warning' ? 'badge-amber' : 'badge-red'
-  const statusBadge = r.status === 'Issued' ? 'badge-green' : 'badge-blue'
-  return (
-    <div className="info-row">
-      <div>
-        <span className="mono text-accent" style={{ fontSize: 10.5, fontWeight: 700 }}>{r.id}</span>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
-          {r.customer?.split(' ').slice(0, 2).join(' ')} · {r.bottleIds?.length} btl · {fmtDate(r.date)}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span className={`badge ${resultBadge}`}>{r.result}</span>
-        <span className={`badge ${statusBadge}`}>{r.status}</span>
-      </div>
-    </div>
-  )
-}
-
-/* ── Pending Request Card ─────────────────────────────────────────────────── */
-function PendingRequestCard({ req, onViewInBatches }) {
-  const [expanded, setExpanded] = useState(false)
-  const priorityColor = req.priority === 'urgent' ? 'var(--red)' : req.priority === 'high' ? 'var(--amber)' : 'var(--blue)'
-  const priorityBg    = req.priority === 'urgent' ? 'rgba(212,42,42,0.07)' : req.priority === 'high' ? 'rgba(201,122,6,0.07)' : 'rgba(31,94,196,0.07)'
-
-  return (
-    <div style={{
-      borderRadius: 'var(--r)',
-      border: `1px solid ${priorityColor}30`,
-      borderLeft: `3px solid ${priorityColor}`,
-      background: 'var(--surface)',
-      overflow: 'hidden',
-      transition: 'box-shadow 0.15s',
-    }}>
-      {/* Header row */}
-      <div
-        onClick={() => setExpanded(p => !p)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 12,
-          padding: '12px 16px', cursor: 'pointer',
-          background: expanded ? priorityBg : 'transparent',
-          transition: 'background 0.15s',
-        }}
-      >
-        <div style={{
-          width: 34, height: 34, borderRadius: 'var(--r-xs)',
-          background: priorityBg, display: 'flex', alignItems: 'center',
-          justifyContent: 'center', flexShrink: 0,
-        }}>
-          <ClipboardList size={16} color={priorityColor} strokeWidth={2} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700 }}>
-              {req.customer?.split(' ').slice(0, 3).join(' ')}
-            </span>
-            <span style={{
-              fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 20,
-              background: priorityBg, color: priorityColor,
-              border: `1px solid ${priorityColor}40`,
-              textTransform: 'uppercase', letterSpacing: '0.5px',
-            }}>{req.priority}</span>
-            <span className="mono" style={{ fontSize: 9.5, color: 'var(--text-muted)' }}>{req.id}</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-            {req.sampleType} · {req.qty} bottles · Requested {fmtDate(req.requestedDate)}
-          </div>
-        </div>
-        <ChevronDown size={15} color="var(--text-muted)" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-      </div>
-
-      {/* Expanded detail */}
-      {expanded && (
-        <div style={{ padding: '0 16px 14px', borderTop: `1px solid ${priorityColor}20` }}>
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px',
-            padding: '12px 0', fontSize: 12,
-          }}>
-            <div>
-              <span style={{ color: 'var(--text-muted)', fontSize: 10.5, display: 'block', marginBottom: 2 }}>Sample Type</span>
-              <span style={{ fontWeight: 600 }}>{req.sampleType}</span>
-            </div>
-            <div>
-              <span style={{ color: 'var(--text-muted)', fontSize: 10.5, display: 'block', marginBottom: 2 }}>Bottles Requested</span>
-              <span style={{ fontWeight: 700, color: priorityColor, fontSize: 14, fontFamily: 'var(--font-display)' }}>{req.qty}</span>
-            </div>
-            <div style={{ gridColumn: '1/-1' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: 10.5, display: 'block', marginBottom: 2 }}>Collection Location</span>
-              <span style={{ fontWeight: 600 }}>{req.location || '—'}</span>
-            </div>
-            {req.notes && (
-              <div style={{ gridColumn: '1/-1' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: 10.5, display: 'block', marginBottom: 2 }}>Notes</span>
-                <span style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{req.notes}</span>
+        {allDone
+          ? <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 3 }}><Check size={10} strokeWidth={3} />Done</span>
+          : <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ flex: 1, height: 4, background: '#e9e5de', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: 'var(--accent)', borderRadius: 2, transition: 'width 0.7s cubic-bezier(0.16,1,0.3,1)' }} />
               </div>
-            )}
-          </div>
-          <button
-            className="btn btn-primary btn-sm"
-            style={{ width: '100%', marginTop: 4 }}
-            onClick={(e) => { e.stopPropagation(); onViewInBatches() }}
-          >
-            <ArrowRight size={13} strokeWidth={2} />
-            Approve / Reject in Batches
+              <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)', minWidth: 24, textAlign: 'right' }}>{pct}%</span>
+            </div>
+        }
+      </div>
+      <ChevronRight size={13} color="var(--border-dark)" />
+    </div>
+  )
+}
+
+function NotifItem({ notif, onDismiss }) {
+  const isAuto = notif.type === 'auto'
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 14px', borderBottom: '1px solid var(--border-light)' }}>
+      <div style={{ width: 28, height: 28, borderRadius: 7, background: isAuto ? 'rgba(212,42,42,0.1)' : 'rgba(201,122,6,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Bell size={12} color={isAuto ? 'var(--red)' : 'var(--amber)'} strokeWidth={2} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          {notif.customer}
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--accent)' }}>{notif.batchId}</span>
+          <span style={{ fontSize: 8.5, padding: '1px 6px', borderRadius: 8, background: isAuto ? 'rgba(212,42,42,0.1)' : 'rgba(201,122,6,0.1)', color: isAuto ? 'var(--red)' : 'var(--amber)', fontWeight: 700, textTransform: 'uppercase' }}>{isAuto ? 'Auto' : 'Manual'}</span>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-primary)', lineHeight: 1.4 }}>{notif.msg}</div>
+        <div style={{ fontSize: 9.5, color: 'var(--text-secondary)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>{new Date(notif.ts).toLocaleString()}</div>
+      </div>
+      <button onClick={() => onDismiss(notif.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 3, borderRadius: 4, display: 'flex', flexShrink: 0 }}
+        onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>✕</button>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   MAIN DASHBOARD
+   - Fetches its own data once on mount (no App.jsx double-fetch)
+   - Pushes topbar counts up via onTopbarUpdate
+═══════════════════════════════════════════════════════════════════════ */
+export default function Dashboard({ onTopbarUpdate }) {
+  const navigate = useNavigate()
+  const toast    = useToast()
+
+  const [showScan,       setShowScan]       = useState(false)
+  const [kpi,            setKpi]            = useState(null)
+  const [recentBatches,  setRecentBatches]  = useState([])
+  const [overdue,        setOverdue]        = useState([])
+  const [notifications,  setNotifications]  = useState([])
+  const [loading,        setLoading]        = useState(true)
+
+  // Single load on mount — no repeated calls
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      try {
+        const [dashRes, alertRes] = await Promise.all([
+          getDashboard(),
+          getAlerts(false),
+        ])
+
+        if (cancelled) return
+
+        if (dashRes?.data) {
+          setKpi(dashRes.data.kpi ?? null)
+          setRecentBatches(dashRes.data.recent ?? [])
+          setOverdue(dashRes.data.overdue ?? [])
+
+          // Push counts to topbar
+          const k = dashRes.data.kpi
+          if (k && onTopbarUpdate) {
+            onTopbarUpdate({
+              batches:      k.totalBatches  ?? 0,
+              withCustomer: k.withCustomer  ?? 0,
+              inLab:        k.returned      ?? 0,
+            })
+          }
+        }
+
+        if (alertRes?.data?.alerts) {
+          const norm = alertRes.data.alerts.map(normaliseApiAlert)
+          setNotifications(norm)
+          if (onTopbarUpdate) onTopbarUpdate({ alerts: alertRes.data.unreadCount ?? norm.filter(n => !n.read).length })
+        }
+      } catch (e) {
+        if (!cancelled) console.error('[Dashboard] load failed:', e)
+      }
+      if (!cancelled) setLoading(false)
+    }
+
+    load()
+    return () => { cancelled = true } // cleanup prevents state update after unmount
+  }, []) // empty deps — runs exactly once
+
+  const kpiVal = (key, fallback = 0) => kpi?.[key] ?? fallback
+  const totalBottles   = kpiVal('totalBottles')
+  const withCustomer   = kpiVal('withCustomer')
+  const returnedToLab  = kpiVal('returned')
+  const totalBatches   = kpiVal('totalBatches')
+  const returnRate     = totalBottles > 0 ? Math.round((returnedToLab / totalBottles) * 100) : 0
+  const unread         = notifications.filter(n => !n.read).length
+
+  // Dummy bottles array for ScannerPanel (it's local-state only on dashboard)
+  const [localBottles, setLocalBottles] = useState([])
+
+  async function dismissNotif(localId) {
+    const notif = notifications.find(n => n.id === localId)
+    if (notif?._apiId) {
+      try { await markAlertRead(notif._apiId, false) } catch { /* silent */ }
+    }
+    setNotifications(p => p.filter(n => n.id !== localId))
+    if (onTopbarUpdate) onTopbarUpdate({ alerts: Math.max(0, unread - 1) })
+  }
+
+  async function markAllRead() {
+    try { await markAlertRead(0, true) } catch { /* silent */ }
+    setNotifications(p => p.map(n => ({ ...n, read: true })))
+    if (onTopbarUpdate) onTopbarUpdate({ alerts: 0 })
+  }
+
+  function clearAll() {
+    setNotifications([])
+    if (onTopbarUpdate) onTopbarUpdate({ alerts: 0 })
+  }
+
+  return (
+    <div style={{ maxWidth: 1400 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)', animation: 'pageIn 0.35s cubic-bezier(0.16,1,0.3,1) both' }}>
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '1.8px', marginBottom: 5 }}>VPS LabTrack</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.1 }}>Lab Management Dashboard</div>
+          <div style={{ fontSize: 11, color: 'var(--text-primary)', marginTop: 4 }}>Bottle dispatch & return · Order → Dispatched → In Transit → Delivered</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={() => setShowScan(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: showScan ? 'rgba(31,94,196,0.08)' : 'var(--bg)', border: `1px solid ${showScan ? 'rgba(31,94,196,0.3)' : 'var(--border-dark)'}`, borderRadius: 9, color: showScan ? 'var(--blue)' : 'var(--text-secondary)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', transition: 'all 0.18s' }}>
+            <ScanLine size={13} strokeWidth={2} /> Show Scanner
           </button>
         </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Main Dashboard ───────────────────────────────────────────────────────── */
-export default function Dashboard({ batches, bottles, reports, alerts, batchRequests = [], setBatchRequests, setBatches }) {
-  const navigate = useNavigate()
-
-  const emptyAtCust   = bottles.filter(b => b.status === 'Empty').length
-  const collectedCust = bottles.filter(b => b.status === 'Collected').length
-  const inTransit     = bottles.filter(b => b.status === 'Sent to VPS').length
-  const inLab         = bottles.filter(b => b.status === 'In Lab').length
-  const tested        = bottles.filter(b => b.status === 'Tested').length
-  const reportReady   = bottles.filter(b => b.status === 'Report Ready').length
-  const totalBottles  = bottles.length
-  const pendingAck    = batches.filter(b => b.stage === 0).length
-  const received      = batches.filter(b => b.stage === 1).length
-  const withIssues    = batches.filter(b => b.issues?.length > 0).length
-  const activeBatches = batches.filter(b => b.stage === 1)
-
-  const pendingRequests = batchRequests.filter(r => r.status === 'Pending')
-
-  const donut = [
-    { label: 'Empty at Customer', value: emptyAtCust,   color: '#d1d5db' },
-    { label: 'Collected',         value: collectedCust,  color: '#60a5fa' },
-    { label: 'In Transit',        value: inTransit,      color: '#f59e0b' },
-    { label: 'In Lab',            value: inLab,          color: '#8b5cf6' },
-    { label: 'Tested',            value: tested,         color: '#06b6d4' },
-    { label: 'Report Ready',      value: reportReady,    color: '#10b981' },
-  ].filter(d => d.value > 0)
-
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <div className="page-header-tag">Overview</div>
-          <div className="page-header-title">Operations Dashboard</div>
-          <div className="page-header-sub">Live tracking across all batches and lab activity</div>
-        </div>
       </div>
 
-      {/* ── KPI Row ── */}
-      <div className="grid-4 mb-6" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-        <KPICard delay={0}   icon={Inbox}       value={batchRequests.length}  label="Customer Requests"  sub={`${pendingRequests.length} pending · ${batchRequests.filter(r => r.status === 'Approved').length} approved`} color="var(--blue)"   bg="rgba(31,94,196,0.08)"   onClick={() => navigate('/batches')} />
-        <KPICard delay={40}  icon={Package}     value={emptyAtCust}           label="Empty at Customer"  sub={`${collectedCust} collected · not sent`}                                                                       color="#6b7280"       bg="rgba(107,114,128,0.08)" onClick={() => navigate('/portal')} />
-        <KPICard delay={80}  icon={Truck}       value={inTransit}             label="In Transit"         sub="Sent to VPS · not yet received"                                                                                color="var(--amber)"  bg="rgba(201,122,6,0.08)"   onClick={() => navigate('/lab')} />
-        <KPICard delay={120} icon={FlaskConical} value={inLab}                label="In Lab"             sub={tested > 0 ? `${tested} tested · pending report` : 'All processed'}                                           color="var(--purple)" bg="rgba(103,48,194,0.08)"  onClick={() => navigate('/lab')} />
-        <KPICard delay={160} icon={FileText}    value={reports.length}        label="Reports Generated"  sub={`${reports.filter(r => r.status === 'Issued').length} issued to customers`}                                   color="var(--green)"  bg="rgba(10,124,82,0.08)"   onClick={() => navigate('/reports')} />
+      {showScan && <div style={{ marginBottom: 20 }}><ScannerPanel bottles={localBottles} setBottles={setLocalBottles} batches={[]} onClose={() => setShowScan(false)} /></div>}
+
+      {/* KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 20 }}>
+        <KPICard value={totalBatches}  label="Total Batches"   sub="All dispatched"        color="var(--accent)" bg="rgba(232,93,10,0.08)"  border="rgba(232,93,10,0.2)"  icon={Package}    onClick={() => navigate('/batches')} delay={0}   />
+        <KPICard value={totalBottles}  label="Total Bottles"   sub="Across all batches"    color="var(--blue)"   bg="rgba(31,94,196,0.08)"  border="rgba(31,94,196,0.2)"  icon={Layers}     onClick={() => navigate('/lab')}     delay={60}  />
+        <KPICard value={withCustomer}  label="With Customer"   sub="Awaiting return"       color="var(--amber)"  bg="rgba(201,122,6,0.08)"  border="rgba(201,122,6,0.2)"  icon={ArrowRight}  onClick={() => navigate('/lab')}     delay={120} />
+        <KPICard value={returnedToLab} label="Returned to Lab" sub={`${returnRate}% rate`} color="var(--green)"  bg="rgba(10,124,82,0.08)"  border="rgba(10,124,82,0.2)"  icon={ArrowLeft}   onClick={() => navigate('/lab')}     delay={180} />
       </div>
 
-      {/* ── Middle Row ── */}
-      <div className="grid-3 mb-6">
-        <div className="card anim-slide-up" style={{ animationDelay: '240ms' }}>
-          <div className="card-header">
-            <span className="card-title">Bottle Status</span>
-            <span style={{ fontSize: 9.5, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{totalBottles} total</span>
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 18, marginBottom: 18 }}>
+
+        {/* Batch table */}
+        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(14,17,23,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(232,93,10,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Activity size={13} color="var(--accent)" strokeWidth={2} />
+              </div>
+              <div>
+                <div style={{ fontSize: 12.5, fontWeight: 700 }}>Batch Tracking</div>
+                <div style={{ fontSize: 9.5, color: 'var(--text-primary)' }}>Live stage · dispatch · return status</div>
+              </div>
+            </div>
+            <button onClick={() => navigate('/batches')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: 'var(--bg)', border: '1px solid var(--border-dark)', borderRadius: 7, fontSize: 10.5, fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer' }}>
+              View All <ChevronRight size={11} />
+            </button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-            <DonutChart segments={donut} size={130} thickness={22} centerLabel={totalBottles} centerSub="bottles" />
-            <div style={{ width: '100%' }}>
-              {donut.map(item => (
-                <div key={item.label} className="info-row">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: item.color }} />
-                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{item.label}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr 28px', gap: 10, padding: '7px 18px', background: '#12171e' }}>
+            {['Batch / Stage', 'Total', 'With Cust.', 'Returned', 'Return %', ''].map((h, i) => (
+              <div key={h} style={{ fontSize: 8, fontWeight: 600, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '1px', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
+            ))}
+          </div>
+          {loading && <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-primary)', fontSize: 12 }}>Loading…</div>}
+          {!loading && recentBatches.map(b => <BatchRow key={b.Id || b.BatchCode} batch={b} onNavigate={() => navigate('/batches')} />)}
+          {!loading && recentBatches.length === 0 && (
+            <div style={{ padding: '44px', textAlign: 'center' }}>
+              <Inbox size={28} style={{ margin: '0 auto 10px', opacity: 0.15, display: 'block' }} strokeWidth={1.5} />
+              <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>No batches yet. Create your first batch.</div>
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Bottle overview */}
+          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', boxShadow: '0 1px 3px rgba(14,17,23,0.05)' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12 }}>Bottle Overview</div>
+            {[
+              { label: 'With Customer',  value: withCustomer,  color: 'var(--amber)', bg: 'rgba(201,122,6,0.08)' },
+              { label: 'Returned to Lab',value: returnedToLab, color: 'var(--green)', bg: 'rgba(10,124,82,0.08)' },
+            ].map(s => (
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 9, background: s.bg, marginBottom: 8 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-primary)' }}>{s.label}</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: 'var(--text-primary)', marginBottom: 4 }}>
+                <span>Return Rate</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--green)' }}>{returnRate}%</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${returnRate}%`, background: 'var(--green)', borderRadius: 3, transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Pending returns */}
+          <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', boxShadow: '0 1px 3px rgba(14,17,23,0.05)' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <RotateCcw size={12} color="var(--amber)" strokeWidth={2} />
+              Pending Returns
+            </div>
+            {overdue.length > 0
+              ? overdue.slice(0, 5).map(o => (
+                  <div key={o.id ?? o.Id ?? o.batchCode ?? (o.batchCode ?? o.BatchCode)} onClick={() => navigate('/batches')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 9, background: 'rgba(212,42,42,0.04)', border: '1px solid rgba(212,42,42,0.15)', marginBottom: 7, cursor: 'pointer' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)', lineHeight: 1 }}>{(o.batchCode ?? o.BatchCode)}</div>
+                      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-primary)', marginTop: 2 }}>{o.customerName ?? o.CustomerName ?? ''}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 800, color: 'var(--red)', lineHeight: 1 }}>{(o.withCustomerCount ?? o.WithCustomerCount)}</div>
+                      <div style={{ fontSize: 8.5, color: 'var(--red)', textTransform: 'uppercase', marginTop: 1 }}>Overdue</div>
+                    </div>
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{item.value}</span>
+                ))
+              : (
+                <div style={{ textAlign: 'center', padding: '18px', color: 'var(--text-primary)', fontSize: 11 }}>
+                  <Check size={16} style={{ margin: '0 auto 6px', display: 'block' }} color="var(--green)" strokeWidth={2} />
+                  All bottles returned
                 </div>
-              ))}
-            </div>
+              )
+            }
           </div>
-        </div>
-
-        <div className="card anim-slide-up" style={{ animationDelay: '290ms' }}>
-          <div className="card-header">
-            <span className="card-title">Batch Status</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/batches')}>View All</button>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <BatchBox icon={Clock}         value={pendingAck} label="Awaiting Acknowledgement" sub="Customer has not confirmed receipt"  iconColor="var(--red)"   />
-            <BatchBox icon={CheckCircle2}  value={received}   label="Received — Active"         sub="Bottles in collection stages"        iconColor="var(--green)" />
-            <BatchBox icon={TriangleAlert} value={withIssues} label="With Issues"               sub="Requires staff attention"            iconColor="var(--blue)"  />
-          </div>
-        </div>
-
-        <div className="card anim-slide-up" style={{ animationDelay: '340ms' }}>
-          <div className="card-header">
-            <span className="card-title">Active Alerts</span>
-            {alerts.length > 0 && <span className="badge badge-red">{alerts.length}</span>}
-          </div>
-          {alerts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '28px', color: 'var(--text-muted)' }}>
-              <CheckCircle2 size={26} style={{ margin: '0 auto 10px', opacity: 0.2, display: 'block' }} strokeWidth={1.5} />
-              <div style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>All Clear</div>
-            </div>
-          ) : (
-            <>
-              {alerts.slice(0, 4).map(a => <AlertItem key={a.id} alert={a} />)}
-              {alerts.length > 4 && (
-                <button className="btn btn-ghost btn-sm w-full" onClick={() => navigate('/alerts')}>
-                  View All {alerts.length} Alerts
-                </button>
-              )}
-            </>
-          )}
         </div>
       </div>
 
-      {/* ── Bottom Row ── */}
-      <div className="grid-2 mb-6" style={{ gap: 18 }}>
-        <div className="card anim-slide-up" style={{ animationDelay: '400ms' }}>
-          <div className="card-header">
-            <span className="card-title">Bottle Progress by Batch</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/batches')}>All Batches</button>
+      {/* Notifications panel */}
+      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 3px rgba(14,17,23,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: unread > 0 ? 'rgba(212,42,42,0.08)' : 'rgba(10,124,82,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Bell size={13} color={unread > 0 ? 'var(--red)' : 'var(--green)'} strokeWidth={2} />
           </div>
-          {activeBatches.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontFamily: 'var(--font-mono)' }}>No received batches yet.</div>
-          ) : (
-            activeBatches.map(b => (
-              <MultiSegBar key={b.id} batchId={b.id} bottles={bottles} label={`${b.id} — ${b.customer.split(' ').slice(0, 2).join(' ')}`} />
-            ))
-          )}
+          <div style={{ fontSize: 12.5, fontWeight: 700 }}>Notifications</div>
+          {unread > 0 && <span style={{ background: 'var(--red)', color: '#fff', borderRadius: 10, fontSize: 9.5, fontWeight: 800, padding: '2px 7px' }}>{unread} new</span>}
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', flex: 1 }}>
+            Auto-triggered when bottles not returned 30+ days after delivery
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {unread > 0 && (
+              <button onClick={markAllRead} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(10,124,82,0.07)', border: '1px solid rgba(10,124,82,0.2)', borderRadius: 7, fontSize: 10.5, fontWeight: 600, color: 'var(--green)', cursor: 'pointer' }}>
+                <Check size={10} strokeWidth={2.5} /> Mark read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button onClick={clearAll} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'var(--bg)', border: '1px solid var(--border-dark)', borderRadius: 7, fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                <RotateCcw size={10} strokeWidth={2} /> Clear all
+              </button>
+            )}
+          </div>
         </div>
-
-        <div className="card anim-slide-up" style={{ animationDelay: '450ms' }}>
-          <div className="card-header">
-            <span className="card-title">Recent Reports</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/reports')}>All</button>
-          </div>
-          {reports.length === 0 ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: 11.5, fontFamily: 'var(--font-mono)' }}>No reports yet.</div>
-          ) : (
-            reports.map(r => <ReportRow key={r.id} r={r} bottles={bottles} />)
-          )}
+        <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+          {notifications.length > 0
+            ? [...notifications].sort((a, b) => b.ts - a.ts).map(n => <NotifItem key={n.id} notif={n} onDismiss={dismissNotif} />)
+            : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0', gap: 8 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(10,124,82,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Check size={18} color="var(--green)" strokeWidth={2} />
+                </div>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)' }}>No Notifications</div>
+                <div style={{ fontSize: 10.5, color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 340, lineHeight: 1.5 }}>
+                  Auto-alerts fire when a delivered batch has bottles not returned after 30 days.
+                </div>
+              </div>
+            )
+          }
         </div>
       </div>
     </div>

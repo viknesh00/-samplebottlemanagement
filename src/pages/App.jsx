@@ -152,7 +152,6 @@ function AppShell() {
                   </PageWrapper>
                 </ProtectedRoute>
               } />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/batches" element={
                 <ProtectedRoute allowedRoles={['admin','staff']}>
                   <PageWrapper>
@@ -179,6 +178,7 @@ function AppShell() {
                   <PageWrapper><SettingsPage /></PageWrapper>
                 </ProtectedRoute>
               } />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>

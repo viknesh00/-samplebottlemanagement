@@ -7,52 +7,27 @@ const NAV_SECTIONS_ADMIN = [
   {
     label: 'Overview',
     items: [
-      { to: '/', icon: <Icons.Dashboard />, label: 'Dashboard' },
+      { to: '/dashboard', icon: <Icons.Dashboard />, label: 'Dashboard' },
     ]
   },
   {
-    label: 'Operations',
+    label: 'Lab Management',
     items: [
-      { to: '/batches',  icon: <Icons.Bottle />,  label: 'Batches'        },
-      { to: '/lab',      icon: <Icons.Flask />,   label: 'Lab Processing' },
-      { to: '/reports',  icon: <Icons.Reports />, label: 'Reports'        },
-    ]
-  },
-  {
-    label: 'Management',
-    items: [
-      { to: '/customers', icon: <Icons.User />,    label: 'Customers'       },
-      { to: '/portal',    icon: <Icons.Return />,  label: 'Customer Portal' },
-      { to: '/alerts',    icon: <Icons.Warn />,    label: 'Alerts', badge: 'alerts' },
+      { to: '/batches',  icon: <Icons.Bottle />,  label: 'Batches & Dispatch' },
+      { to: '/lab',      icon: <Icons.Flask />,   label: 'Lab Tracking'       },
     ]
   },
   {
     label: 'System',
     items: [
-      { to: '/settings', icon: <Icons.Settings />, label: 'Settings' },
+      { to: '/alerts',   icon: <Icons.Warn />,    label: 'Alerts', badge: 'alerts' },
     ]
   },
 ]
 
-const NAV_SECTIONS_CUSTOMER = [
-  {
-    label: 'Overview',
-    items: [
-      { to: '/dashboard', icon: <Icons.Dashboard />, label: 'Dashboard' },
-    ]
-  },
-  {
-    label: 'My Batches',
-    items: [
-      { to: '/portal',   icon: <Icons.Return />,  label: 'My Batches & Samples' },
-      { to: '/reports',  icon: <Icons.Reports />, label: 'Reports' },
-    ]
-  }
-]
-
-export default function Sidebar({ alertCount, pendingRequests }) {
+export default function Sidebar({ alertCount }) {
   const { user, logout } = useAuth()
-  const sections = user?.role === 'customer' ? NAV_SECTIONS_CUSTOMER : NAV_SECTIONS_ADMIN
+  const sections = NAV_SECTIONS_ADMIN
   const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2) || 'VA'
 
   return (
@@ -65,7 +40,7 @@ export default function Sidebar({ alertCount, pendingRequests }) {
           </div>
           <div>
             <div className="brand-name">VPS LabTrack</div>
-            <div className="brand-sub">Sample Management</div>
+            <div className="brand-sub">Lab Management</div>
           </div>
         </div>
       </div>
@@ -79,16 +54,13 @@ export default function Sidebar({ alertCount, pendingRequests }) {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/' || item.to === '/dashboard'}
+                end={item.to === '/'}
                 className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-item-label">{item.label}</span>
                 {item.badge === 'alerts' && alertCount > 0 && (
                   <span className="nav-badge nav-badge-red">{alertCount}</span>
-                )}
-                {item.badge === 'requests' && pendingRequests > 0 && (
-                  <span className="nav-badge nav-badge-orange">{pendingRequests}</span>
                 )}
               </NavLink>
             ))}
@@ -101,7 +73,7 @@ export default function Sidebar({ alertCount, pendingRequests }) {
         <div className="status-label">System Status</div>
         <div className="status-row">
           <span className="status-dot"></span>
-          <span className="status-text">Online · v1.1.0</span>
+          <span className="status-text">Online · v2.0.0</span>
         </div>
       </div>
 

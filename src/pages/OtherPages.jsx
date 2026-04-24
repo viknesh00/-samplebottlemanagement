@@ -1,88 +1,23 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as Icons from '../components/Icons'
-import { fmtDate } from '../data/mockData'
+import { fmtDate } from '../utils/constants'
+import AlertsPageImpl from './AlertsPage'
 import {
   AlertTriangle, CheckCircle2, Save, Check,
   Building2, FlaskConical, Bell, Download, Trash2,
   Lock, ArrowLeft,
 } from 'lucide-react'
 
-// ── Alerts Page ───────────────────────────────────────────────────────────────
-export function AlertsPage({ alerts, batches }) {
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <div className="page-header-tag">Management</div>
-          <div className="page-header-title">System Alerts</div>
-          <div className="page-header-sub">Issues and flags requiring immediate attention</div>
-        </div>
-        {alerts.length > 0 && <span className="badge badge-red" style={{ fontSize: 12, padding: '5px 12px' }}>{alerts.length} active</span>}
-      </div>
-
-      {alerts.length === 0 && (
-        <div className="card">
-          <div style={{ textAlign: 'center', padding: '64px 20px' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(10,124,82,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <CheckCircle2 size={28} color="var(--green)" strokeWidth={1.5} />
-            </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>All Clear</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>No active alerts at this time.</div>
-          </div>
-        </div>
-      )}
-
-      {alerts.map((a, i) => {
-        const batch = batches.find(b => b.id === a.batch)
-        const isRed = a.severity === 'red'
-        return (
-          <div
-            key={a.id}
-            className="card anim-slide-up"
-            style={{ borderLeft: `3px solid ${isRed ? 'var(--red)' : 'var(--amber)'}`, marginBottom: 12, animationDelay: `${i * 60}ms` }}
-          >
-            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 'var(--r-sm)',
-                background: isRed ? 'rgba(212,42,42,0.1)' : 'rgba(201,122,6,0.1)',
-                border: `1px solid ${isRed ? 'rgba(212,42,42,0.2)' : 'rgba(201,122,6,0.2)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: isRed ? 'var(--red)' : 'var(--amber)', flexShrink: 0,
-              }}>
-                <AlertTriangle size={17} strokeWidth={2} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 5 }}>
-                      {a.customer?.split(' ').slice(0, 3).join(' ')}
-                      <span className="mono" style={{ fontSize: 11, color: 'var(--accent)', marginLeft: 10 }}>{a.batch}</span>
-                    </div>
-                    <span className={`badge badge-${isRed ? 'red' : 'amber'}`}>{a.type}</span>
-                  </div>
-                  <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', background: 'var(--bg)', padding: '3px 8px', borderRadius: 'var(--r-xs)', border: 'var(--rule)' }}>{a.age} ago</span>
-                </div>
-                <div style={{ fontSize: 12.5, lineHeight: 1.7, color: 'var(--text-secondary)', marginBottom: batch ? 10 : 0 }}>{a.msg}</div>
-                {batch && (
-                  <div style={{ padding: '9px 12px', background: 'var(--bg)', borderRadius: 'var(--r-sm)', border: 'var(--rule)', fontSize: 11.5, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    {batch.sampleType} · {batch.qty} bottles · dispatched {fmtDate(batch.dispatched)}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
+// ── Alerts / Notifications Page ──────────────────────────────────────────────
+export function AlertsPage({ onTopbarUpdate }) {
+  return <AlertsPageImpl onTopbarUpdate={onTopbarUpdate} />
 }
 
 // ── Settings Page ─────────────────────────────────────────────────────────────
 export function SettingsPage() {
   const [notifEmail, setNotifEmail] = useState(true)
   const [notifSMS,   setNotifSMS]   = useState(false)
-  const [autoIssue,  setAutoIssue]  = useState(false)
   const [retention,  setRetention]  = useState('12')
   const [orgName,    setOrgName]    = useState('VPS Veritas')
   const [orgEmail,   setOrgEmail]   = useState('lab@vpsveritas.com')
@@ -179,7 +114,6 @@ export function SettingsPage() {
           <SectionCard delay={120} title="Notifications" subtitle="How and when alerts are delivered" icon={Bell}>
             <SettingRow label="Email Alerts" desc="Send alert emails to lab contact address"><Toggle checked={notifEmail} onChange={setNotifEmail} /></SettingRow>
             <SettingRow label="SMS Notifications" desc="Text message alerts for critical results"><Toggle checked={notifSMS} onChange={setNotifSMS} /></SettingRow>
-            <SettingRow label="Auto-Issue Reports" desc="Automatically issue reports when tested"><Toggle checked={autoIssue} onChange={setAutoIssue} /></SettingRow>
             <div style={{ paddingTop: 12 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Alert Email Recipients</label>

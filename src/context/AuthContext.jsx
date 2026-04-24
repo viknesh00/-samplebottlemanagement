@@ -1,149 +1,121 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState } from 'react'
+import { postRequest } from '../services/ApiServices'
+import { cookieKeys, getCookie, setCookie } from '../services/Cookies'
+import { cookieObj } from '../models/cookieObj'
 
-// ── Dummy User Accounts ───────────────────────────────────────────────────────
-export const DUMMY_USERS = [
-  {
-    id: 'U001',
-    role: 'admin',
-    name: 'VPS Admin',
-    email: 'admin@vpsveritas.com',
-    password: 'admin123',
-    avatar: 'VA',
-    title: 'Lab Manager',
-    company: 'VPS Veritas',
-  },
-  {
-    id: 'U002',
-    role: 'staff',
-    name: 'Dr. Mehta',
-    email: 'mehta@vpsveritas.com',
-    password: 'staff123',
-    avatar: 'DM',
-    title: 'Lab Technician',
-    company: 'VPS Veritas',
-  },
-  {
-    id: 'U003',
-    role: 'staff',
-    name: 'Ms. Asha',
-    email: 'asha@vpsveritas.com',
-    password: 'staff123',
-    avatar: 'MA',
-    title: 'Senior Analyst',
-    company: 'VPS Veritas',
-  },
-  {
-    id: 'C001',
-    role: 'customer',
-    name: 'James Walker',
-    email: 'james.walker@ukpower.co.uk',
-    password: 'ukpower123',
-    avatar: 'JW',
-    title: 'Maintenance Manager',
-    company: 'UK POWER NETWORKS LPN',
-    customerName: 'UK POWER NETWORKS LPN',
-  },
-  {
-    id: 'C002',
-    role: 'customer',
-    name: 'Emily Thompson',
-    email: 'emily.thompson@freedom.co.uk',
-    password: 'freedom123',
-    avatar: 'ET',
-    title: 'Plant Engineer',
-    company: 'FREEDOM GROUP OF COMPANIES LTD',
-    customerName: 'FREEDOM GROUP OF COMPANIES LTD',
-  },
-  {
-    id: 'C003',
-    role: 'customer',
-    name: 'George Harris',
-    email: 'george.harris@infinis.co.uk',
-    password: 'infinis123',
-    avatar: 'GH',
-    title: 'Operations Manager',
-    company: 'INFINIS ENERGY SERVICES LTD',
-    customerName: 'INFINIS ENERGY SERVICES LTD',
-  },
-  {
-    id: 'C004',
-    role: 'customer',
-    name: 'Sophia Wilson',
-    email: 'sophia.wilson@npg.co.uk',
-    password: 'npg123',
-    avatar: 'SW',
-    title: 'Site Engineer',
-    company: 'NORTHERN POWERGRID (YORKSHIRE)',
-    customerName: 'NORTHERN POWERGRID (YORKSHIRE)',
-  },
-  {
-    id: 'C005',
-    role: 'customer',
-    name: 'Oliver Brown',
-    email: 'oliver.brown@lightsourcebp.co.uk',
-    password: 'lightsource123',
-    avatar: 'OB',
-    title: 'Operations Lead',
-    company: 'LIGHTSOURCE BP',
-    customerName: 'LIGHTSOURCE BP',
-  },
-  {
-    id: 'C006',
-    role: 'customer',
-    name: 'Charlotte Evans',
-    email: 'charlotte.evans@exxonmobil.co.uk',
-    password: 'exxon123',
-    avatar: 'CE',
-    title: 'Lab Coordinator',
-    company: 'EXXONMOBIL ASIA PACIFIC PTE LTD',
-    customerName: 'EXXONMOBIL ASIA PACIFIC PTE LTD',
-  },
-]
-
-// ── Context Setup ─────────────────────────────────────────────────────────────
 const AuthContext = createContext(null)
+
+// Only this role is permitted to access VPS LabTrack
+const ALLOWED_ROLE = 'VPS Admin'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     try {
-      const stored = sessionStorage.getItem('vps_user')
-      return stored ? JSON.parse(stored) : null
+      const token = getCookie('token')
+      if (!token) return null
+      // Restore session from cookies
+      return {
+        name:      getCookie('name'),
+        username:  getCookie('username'),
+        type:      getCookie('type'),
+        token,
+        clientId:  getCookie('clientId'),
+        userRole:  getCookie('userRole'),
+        clientName: getCookie('clientName'),
+        profileImg: getCookie('profileImg'),
+      }
     } catch {
       return null
     }
   })
-  const [error, setError] = useState('')
 
-  // Keep sessionStorage in sync with user state
-  useEffect(() => {
-    try {
-      if (user) {
-        sessionStorage.setItem('vps_user', JSON.stringify(user))
-      } else {
-        sessionStorage.removeItem('vps_user')
-      }
-    } catch {}
-  }, [user])
+  const [error, setError]     = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function login(email, password) {
+  async function login(email, password) {
     setError('')
-    const found = DUMMY_USERS.find(
-      u => u.email === email.trim().toLowerCase() && u.password === password
-    )
-    if (found) {
-      setUser(found)
-      return true
+    setLoading(true)
+
+    try {
+      // buildUrl() in ApiServices will prepend VITE_CUSTOMER_PORTAL_API_URL
+      const url = 'Authenticate/login'
+
+      // Generate or retrieve persistent device ID
+      let deviceID = getCookie('DeviceUniqueID')
+      if (!deviceID) {
+        const arr = new Uint8Array(20)
+        window.crypto.getRandomValues(arr)
+        deviceID = Array.from(arr, b => (b < 16 ? '0' : '') + b.toString(16)).join('')
+        const oneYear = new Date()
+        oneYear.setFullYear(oneYear.getFullYear() + 1)
+        setCookie('DeviceUniqueID', deviceID, oneYear)
+      }
+
+      const res = await postRequest(url, {
+        username: email.trim(),
+        password,
+        deviceID,
+      })
+
+      if (res.status === 200) {
+        const { data } = res
+
+        // ── Role gate: only VPS Admin may access LabTrack ─────────────────
+        if (data.userRole !== ALLOWED_ROLE) {
+          setError(`Access denied. Only ${ALLOWED_ROLE} accounts can access VPS LabTrack. Please contact your VPS Admin.`)
+          setLoading(false)
+          return { success: false, accessDenied: true }
+        }
+
+        const assetTypes   = []
+        const serviceTypes = []
+        if (!data.devicechanged) {
+          data.assetTypes?.forEach(a => assetTypes.push(a.assetType))
+          data.userServices?.forEach(s => serviceTypes.push(s.service))
+        }
+
+        const userData = {
+          name:            data.userName,
+          username:        email.trim(),
+          type:            data.userType,
+          token:           data.token,
+          clientId:        data.clientId,
+          userRole:        data.userRole,
+          clientName:      data.clientName,
+          profileImg:      data.profilepicture || 'default_image.png',
+          expiration:      data.expiration,
+          assetTypes:      assetTypes.join(','),
+          serviceTypes:    serviceTypes.join(','),
+          resetPassword:   data.resetPassword,
+          bM_ACCESS_STATUS: data.bM_ACCESS_STATUS,
+          fdR_ACCESS_STATUS: data.fdR_ACCESS_STATUS,
+          defaultTab:      data.defaultTab,
+          devicechanged:   data.devicechanged,
+        }
+
+        cookieKeys({ ...cookieObj, ...userData }, data.expiration)
+        setUser(userData)
+        setLoading(false)
+        return { success: true, data }
+      }
+
+      setError('Invalid email or password. Please try again.')
+      setLoading(false)
+      return { success: false }
+    } catch (err) {
+      setError('Invalid email or password. Please try again.')
+      setLoading(false)
+      return { success: false }
     }
-    setError('Invalid email or password. Please try again.')
-    return false
   }
 
   function logout() {
+    cookieKeys(cookieObj, 0)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, error, setError }}>
+    <AuthContext.Provider value={{ user, login, logout, error, setError, loading }}>
       {children}
     </AuthContext.Provider>
   )

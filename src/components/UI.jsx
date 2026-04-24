@@ -2,37 +2,24 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import * as Icons from './Icons'
 
-// ── Segment Progress Bar (Fixed - reads real bottle stats) ────────────────────
+// ── Segment Progress Bar ─────────────────────────────────────────────────────
 const SEG_COLORS = {
-  empty:       '#d1d5db',
-  collected:   '#60a5fa',
-  inTransit:   '#f59e0b',
-  inLab:       '#8b5cf6',
-  tested:      '#06b6d4',
-  reportReady: '#10b981',
+  withCustomer: '#f59e0b',
+  returned:     '#10b981',
 }
 const SEG_LABELS = {
-  empty:       'Empty',
-  collected:   'Collected',
-  inTransit:   'Transit',
-  inLab:       'In Lab',
-  tested:      'Tested',
-  reportReady: 'Ready',
+  withCustomer: 'With Customer',
+  returned:     'Returned',
 }
 
 export function SegBar({ batchId, bottles }) {
-  // Count bottles per status for this batch
   const batchBottles = bottles.filter(b => b.batchId === batchId)
   const stats = {
-    empty:       batchBottles.filter(b => b.status === 'Empty').length,
-    collected:   batchBottles.filter(b => b.status === 'Collected').length,
-    inTransit:   batchBottles.filter(b => b.status === 'Sent to VPS').length,
-    inLab:       batchBottles.filter(b => b.status === 'In Lab').length,
-    tested:      batchBottles.filter(b => b.status === 'Tested').length,
-    reportReady: batchBottles.filter(b => b.status === 'Report Ready').length,
+    withCustomer: batchBottles.filter(b => b.status === 'With Customer').length,
+    returned:     batchBottles.filter(b => b.status === 'Returned to Lab').length,
   }
 
-  const keys = ['reportReady', 'tested', 'inLab', 'inTransit', 'collected', 'empty']
+  const keys = ['returned', 'withCustomer']
   const segs = keys
     .map(k => ({ k, v: stats[k], c: SEG_COLORS[k], l: SEG_LABELS[k] }))
     .filter(s => s.v > 0)
@@ -45,12 +32,7 @@ export function SegBar({ batchId, bottles }) {
     <div style={{ minWidth: 140 }}>
       <div className="seg-bar">
         {segs.map(sg => (
-          <div
-            key={sg.k}
-            className="seg"
-            style={{ flex: sg.v, background: sg.c }}
-            title={`${sg.v} ${sg.l}`}
-          />
+          <div key={sg.k} className="seg" style={{ flex: sg.v, background: sg.c }} title={`${sg.v} ${sg.l}`} />
         ))}
       </div>
       <div className="seg-legend">
@@ -65,26 +47,16 @@ export function SegBar({ batchId, bottles }) {
   )
 }
 
-// ── Multi-Segment Bar (Dashboard version with labels) ────────────────────────
+// ── Multi-Segment Bar ────────────────────────────────────────────────────────
 export function MultiSegBar({ batchId, bottles, label }) {
   const batchBottles = bottles.filter(b => b.batchId === batchId)
-  const stats = {
-    empty:       batchBottles.filter(b => b.status === 'Empty').length,
-    collected:   batchBottles.filter(b => b.status === 'Collected').length,
-    inTransit:   batchBottles.filter(b => b.status === 'Sent to VPS').length,
-    inLab:       batchBottles.filter(b => b.status === 'In Lab').length,
-    tested:      batchBottles.filter(b => b.status === 'Tested').length,
-    reportReady: batchBottles.filter(b => b.status === 'Report Ready').length,
-  }
-  const total = batchBottles.length
+  const withCustomer = batchBottles.filter(b => b.status === 'With Customer').length
+  const returned     = batchBottles.filter(b => b.status === 'Returned to Lab').length
+  const total        = batchBottles.length
 
   const segs = [
-    { label: 'Empty',        value: stats.empty,       color: '#d1d5db' },
-    { label: 'Collected',    value: stats.collected,    color: '#60a5fa' },
-    { label: 'In Transit',   value: stats.inTransit,    color: '#f59e0b' },
-    { label: 'In Lab',       value: stats.inLab,        color: '#8b5cf6' },
-    { label: 'Tested',       value: stats.tested,       color: '#06b6d4' },
-    { label: 'Report Ready', value: stats.reportReady,  color: '#10b981' },
+    { label: 'With Customer', value: withCustomer, color: '#f59e0b' },
+    { label: 'Returned',      value: returned,     color: '#10b981' },
   ].filter(x => x.value > 0)
 
   return (
@@ -200,8 +172,7 @@ export function ProgressBar({ value, max, color }) {
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 const STATUS_MAP = {
-  'Empty': 'gray', 'Collected': 'blue', 'Sent to VPS': 'amber',
-  'In Lab': 'purple', 'Tested': 'teal', 'Report Ready': 'green',
+  'With Customer': 'amber', 'Returned to Lab': 'green',
   'Normal': 'green', 'Warning': 'amber', 'Critical': 'red',
   'Draft': 'blue', 'Issued': 'green', 'Dispatched': 'orange',
 }
