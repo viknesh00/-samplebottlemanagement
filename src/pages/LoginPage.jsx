@@ -76,7 +76,7 @@ export default function LoginPage() {
                 VPS LabTrack
               </div>
               <div style={{ fontSize: 10, color: '#8a919e', textTransform: 'uppercase', letterSpacing: '1.4px', fontFamily: 'var(--font-mono)', marginTop: 3 }}>
-                Oil Sample Management
+                Sample Bottle Tracking system.
               </div>
             </div>
           </div>
