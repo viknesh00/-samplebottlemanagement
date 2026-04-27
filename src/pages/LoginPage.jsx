@@ -65,20 +65,12 @@ export default function LoginPage() {
           }} />
 
           {/* Brand */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 36 }}>
-            <div style={{
-              width: 46, height: 46,
-              background: 'var(--accent)',
-              borderRadius: 10,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 14px rgba(232,93,10,0.32)',
-              position: 'relative', overflow: 'hidden', flexShrink: 0,
-            }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%)' }} />
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" width={22} height={22} style={{ position: 'relative', zIndex: 1 }}>
-                <path d="M9 2h6M10 9l-3 8a2 2 0 001.8 2.8h6.4A2 2 0 0017 17l-3-8V2h-4z" />
-              </svg>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <img
+              src="https://vpsveritas.com//themes/custom/vps/images/logo.svg"
+              alt="VPS Veritas"
+              style={{ width: 72, height: 64, objectFit: 'contain', flexShrink: 0 }}
+            />
             <div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 800, color: '#0e1117', letterSpacing: '0.2px', lineHeight: 1.1 }}>
                 VPS LabTrack

@@ -36,7 +36,10 @@ export default function Sidebar({ alertCount }) {
       <div className="sidebar-brand">
         <div className="brand-logo">
           <div className="brand-icon">
-            <Icons.Flask />
+            <img
+              src="https://vpsveritas.com//themes/custom/vps/images/logo.svg"
+              alt="VPS Veritas Logo"
+            />
           </div>
           <div>
             <div className="brand-name">VPS LabTrack</div>
