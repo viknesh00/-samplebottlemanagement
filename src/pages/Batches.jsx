@@ -4,6 +4,7 @@ import { SAMPLE_TYPES, BATCH_LIFECYCLE, COURIERS, fmtDate, today, daysSince } fr
 import { Modal, SearchBar, SortTh, Pagination, DatePicker } from '../components/UI'
 import LabelPrint from '../components/LabelPrint'
 import { useScanner, useToast } from '../App'
+import BarcodeScannerComponent from 'react-qr-barcode-scanner'
 import {
   Plus, ChevronDown, ChevronRight, Printer, Layers,
   ArrowRight, ArrowLeft, Check, ScanLine, X as XIcon,
@@ -20,7 +21,7 @@ import {
 } from '../services/LabTrackApi'
 
 /* ════════════════════════════════════════════════════════════════════
-   LIFECYCLE STEPPER — unchanged UI
+   LIFECYCLE STEPPER
 ═══════════════════════════════════════════════════════════════════════ */
 const STAGE_ICONS = [
   <ShoppingCart size={10} strokeWidth={2.5} />,
@@ -56,102 +57,35 @@ function LifecycleStepper({ batch, onAdvance, compact = false }) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   BOTTLE SCANNER — API-wired, UI unchanged
+   BOTTLE SCANNER — 
 ═══════════════════════════════════════════════════════════════════════ */
 export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
-  const [mode,    setMode]   = useState('manual')
-  const [input,   setInput]  = useState('')
-  const [result,  setResult] = useState(null)   // { bottle, batch } — normalised shapes
-  const [flash,   setFlash]  = useState(null)
-  const inputRef  = useRef()
-  const videoRef  = useRef()
-  const streamRef = useRef()
-  const toast     = useToast()
+  const [mode,   setMode]   = useState('manual')
+  const [input,  setInput]  = useState('')
+  const [result, setResult] = useState(null)
+  const [flash,  setFlash]  = useState(null)
+  const inputRef = useRef()
+  const toast    = useToast()
   const { registerScanListener } = useScanner()
 
-  useEffect(() => { if (mode === 'manual') setTimeout(() => inputRef.current?.focus(), 50) }, [mode])
+  // 1️⃣ showFlash
+  const showFlash = useCallback((type, msg) => {
+    setFlash({ type, msg })
+    setTimeout(() => setFlash(null), 2800)
+  }, [])
 
-  // USB scanner global hook — calls API lookup
-  useEffect(() => {
-    return registerScanListener(code => processCode(code.trim()))
-  }, []) // eslint-disable-line
-
-  // Barcode decoding — frame polling via BarcodeDetector (Chrome/Edge native)
-  const decoderRef  = useRef(null)
-  const animFrameRef = useRef(null)
-  const lastCodeRef  = useRef(null) // debounce repeated scans of same code
-  const scanCanvas  = useRef(document.createElement('canvas'))
-
-  useEffect(() => {
-    if (mode !== 'camera') { stopCamera(); return }
-    navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment', width: 1280, height: 720 } })
-      .then(stream => {
-        streamRef.current = stream
-        if (videoRef.current) videoRef.current.srcObject = stream
-        startBarcodeDecoding()
-      })
-      .catch(() => { setMode('manual'); showFlash('err', 'Camera not available — using manual mode') })
-    return stopCamera
-  }, [mode]) // eslint-disable-line
-
-  function startBarcodeDecoding() {
-    // Use native BarcodeDetector where available (Chrome 83+, Edge 83+)
-    if (!('BarcodeDetector' in window)) {
-      showFlash('err', 'Barcode detection not supported in this browser — use USB scanner or manual entry')
-      return
-    }
-    try {
-      decoderRef.current = new window.BarcodeDetector({
-        formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'upc_a', 'upc_e', 'itf', 'codabar'],
-      })
-    } catch { return }
-
-    const canvas = scanCanvas.current
-    const ctx    = canvas.getContext('2d')
-    let lastScanTime = 0
-
-    async function tick() {
-      const video = videoRef.current
-      if (video && video.readyState >= video.HAVE_ENOUGH_DATA) {
-        canvas.width  = video.videoWidth
-        canvas.height = video.videoHeight
-        ctx.drawImage(video, 0, 0)
-        try {
-          const codes = await decoderRef.current.detect(canvas)
-          if (codes.length > 0) {
-            const raw  = codes[0].rawValue?.trim()
-            const now  = Date.now()
-            // Debounce: ignore same code within 2.5 s to avoid duplicate API calls
-            if (raw && (raw !== lastCodeRef.current || now - lastScanTime > 2500)) {
-              lastCodeRef.current = raw
-              lastScanTime = now
-              processCode(raw)
-            }
-          }
-        } catch { /* decode error — skip frame */ }
-      }
-      animFrameRef.current = requestAnimationFrame(tick)
-    }
-    animFrameRef.current = requestAnimationFrame(tick)
-  }
-
-  function stopCamera() {
-    if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null }
-    decoderRef.current  = null
-    lastCodeRef.current = null
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    streamRef.current = null
-  }
-  function showFlash(type, msg) { setFlash({ type, msg }); setTimeout(() => setFlash(null), 2800) }
-
-  async function processCode(code) {
+  // 2️⃣ processCode
+  const processCode = useCallback(async (code) => {
     if (!code) return
     try {
       const res = await scanBottle(code)
-      if (!res?.data) { showFlash('err', `No bottle found: "${code}"`); setResult(null); return }
+      if (!res?.data) {
+        showFlash('err', `No bottle found: "${code}"`)
+        setResult(null)
+        return
+      }
       const raw    = res.data
       const bottle = normaliseApiBottle(raw)
-      // Build a minimal batch object matching the shape BatchRow / ScannerPanel expects
       const batch  = {
         id:       raw.batchCode    ?? raw.BatchCode,
         _apiId:   raw.trackerId    ?? raw.TrackerId,
@@ -165,10 +99,20 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
       showFlash('err', `No bottle found: "${code}"`)
       setResult(null)
     }
-  }
+  }, [showFlash])
 
-  function handleSearch() { processCode(input) }
-  function handleKey(e) { if (e.key === 'Enter') handleSearch() }
+  // 3️⃣ Focus effect
+  useEffect(() => {
+    if (mode === 'manual') setTimeout(() => inputRef.current?.focus(), 50)
+  }, [mode])
+
+  // 4️⃣ USB scanner effect — fixed deps
+  useEffect(() => {
+    return registerScanListener(code => processCode(code.trim()))
+  }, [registerScanListener, processCode])
+
+  function handleSearch() { processCode(input.trim()) }
+  function handleKey(e)   { if (e.key === 'Enter') handleSearch() }
 
   async function handleAction(action) {
     if (!result?.bottle || action !== 'return') return
@@ -176,8 +120,11 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
     try {
       await markBottleReturned(bottle._apiId, bottle._trackerId)
       toast(`✓ ${bottle.id} returned to lab`, 'success')
-      // Update the result panel status immediately so user sees the change
-      setResult(prev => prev ? { ...prev, bottle: { ...prev.bottle, status: 'Returned to Lab', returnedDate: new Date().toISOString() } } : null)
+      setResult(prev =>
+        prev
+          ? { ...prev, bottle: { ...prev.bottle, status: 'Returned to Lab', returnedDate: new Date().toISOString() } }
+          : null
+      )
       setBottles(p => p.map(b => b.id === bottle.id ? { ...b, status: 'Returned to Lab' } : b))
     } catch (e) {
       toast(e.message || 'Action failed', 'error')
@@ -187,9 +134,10 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
 
   const statusIs = s => result?.bottle?.status === s
 
-  // ── render (identical to original) ──────────────────────────────────
   return (
     <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 24px rgba(14,17,23,0.08)' }}>
+
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: '#0a0d12', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(232,93,10,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ScanLine size={15} color="#e85d0a" strokeWidth={2} />
@@ -199,81 +147,126 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>USB barcode scanner · camera · manual entry</div>
         </div>
         {onClose && (
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, cursor: 'pointer', color: '#fff', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 7, cursor: 'pointer', color: '#fff', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <XIcon size={13} strokeWidth={2} />
           </button>
         )}
       </div>
 
       <div style={{ padding: '14px 16px' }}>
+
+        {/* Mode toggle */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
           {[
-            { key: 'manual', label: 'USB / Manual', icon: <Usb size={12} strokeWidth={2} /> },
+            { key: 'manual', label: 'USB / Manual', icon: <Usb    size={12} strokeWidth={2} /> },
             { key: 'camera', label: 'Camera',       icon: <Camera size={12} strokeWidth={2} /> },
           ].map(m => (
-            <button key={m.key} onClick={() => setMode(m.key)} style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 8,
-              border: `1.5px solid ${mode === m.key ? '#FF4717' : '#1A1A31'}`,
-              background: mode === m.key ? '#FF4717' : '#fff',
-              color: mode === m.key ? '#fff' : '#1A1A31',
-              fontWeight: 700, fontSize: 11.5, cursor: 'pointer', transition: 'all 0.18s',
-            }}>{m.icon} {m.label}</button>
+            <button
+              key={m.key}
+              onClick={() => setMode(m.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '6px 14px', borderRadius: 8,
+                border: `1.5px solid ${mode === m.key ? '#FF4717' : '#1A1A31'}`,
+                background: mode === m.key ? '#FF4717' : '#fff',
+                color:      mode === m.key ? '#fff'    : '#1A1A31',
+                fontWeight: 700, fontSize: 11.5, cursor: 'pointer', transition: 'all 0.18s',
+              }}
+            >
+              {m.icon} {m.label}
+            </button>
           ))}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: '#1A1A31', background: 'rgba(26,26,49,0.06)', border: '1px solid rgba(26,26,49,0.18)', borderRadius: 8, padding: '4px 10px', fontWeight: 600 }}>
             <ScanLine size={11} strokeWidth={2} /> USB scanner always active
           </div>
         </div>
 
+        {/* Manual / USB input */}
         {mode === 'manual' && (
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: `2px solid ${flash?.type === 'err' ? 'var(--red)' : flash?.type === 'ok' ? 'var(--green)' : 'var(--border-dark)'}`, borderRadius: 10, padding: '0 12px', transition: 'border-color 0.2s' }}>
+            <div style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: 9, background: '#fff',
+              border: `2px solid ${flash?.type === 'err' ? 'var(--red)' : flash?.type === 'ok' ? 'var(--green)' : 'var(--border-dark)'}`,
+              borderRadius: 10, padding: '0 12px', transition: 'border-color 0.2s',
+            }}>
               <Search size={14} color="var(--text-muted)" strokeWidth={2} />
-              <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKey}
                 placeholder="Type Bottle ID or Serial Number then press Enter…"
-                style={{ border: 'none', outline: 'none', fontSize: 13, padding: '10px 0', width: '100%', background: 'transparent', boxShadow: 'none', fontFamily: 'var(--font-mono)' }} />
-              {input && <button onClick={() => { setInput(''); setResult(null); inputRef.current?.focus() }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}><XIcon size={13} /></button>}
+                style={{ border: 'none', outline: 'none', fontSize: 13, padding: '10px 0', width: '100%', background: 'transparent', boxShadow: 'none', fontFamily: 'var(--font-mono)' }}
+              />
+              {input && (
+                <button
+                  onClick={() => { setInput(''); setResult(null); inputRef.current?.focus() }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex' }}
+                >
+                  <XIcon size={13} />
+                </button>
+              )}
             </div>
-            <button onClick={handleSearch} style={{ padding: '0 18px', background: '#FF4717', color: '#fff', border: '1.5px solid #FF4717', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>Search</button>
+            <button
+              onClick={handleSearch}
+              style={{ padding: '0 18px', background: '#FF4717', color: '#fff', border: '1.5px solid #FF4717', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Search
+            </button>
           </div>
         )}
 
+        {/* Camera mode */}
         {mode === 'camera' && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#000', aspectRatio: '16/9', maxHeight: 220 }}>
-              <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', background: '#000', maxHeight: 220 }}>
+              <BarcodeScannerComponent
+                width="100%"
+                height={220}
+                onUpdate={(err, result) => {
+                  if (result) processCode(result.getText())
+                }}
+              />
+              {/* Corner guide overlay */}
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                <div style={{ position: 'absolute', left: '8%', right: '8%', height: 2, background: 'linear-gradient(90deg, transparent, #e85d0a, transparent)', boxShadow: '0 0 10px #e85d0a', animation: 'scanLine 2s ease-in-out infinite' }} />
-                <div style={{ position:'absolute', top:10, left:10, width:20, height:20, borderTop:'2.5px solid #e85d0a', borderLeft:'2.5px solid #e85d0a' }} />
-                <div style={{ position:'absolute', top:10, right:10, width:20, height:20, borderTop:'2.5px solid #e85d0a', borderRight:'2.5px solid #e85d0a' }} />
-                <div style={{ position:'absolute', bottom:10, left:10, width:20, height:20, borderBottom:'2.5px solid #e85d0a', borderLeft:'2.5px solid #e85d0a' }} />
-                <div style={{ position:'absolute', bottom:10, right:10, width:20, height:20, borderBottom:'2.5px solid #e85d0a', borderRight:'2.5px solid #e85d0a' }} />
+                <div style={{ position: 'absolute', top: 10, left: 10,   width: 20, height: 20, borderTop:    '2.5px solid #e85d0a', borderLeft:   '2.5px solid #e85d0a' }} />
+                <div style={{ position: 'absolute', top: 10, right: 10,  width: 20, height: 20, borderTop:    '2.5px solid #e85d0a', borderRight:  '2.5px solid #e85d0a' }} />
+                <div style={{ position: 'absolute', bottom: 10, left: 10,  width: 20, height: 20, borderBottom: '2.5px solid #e85d0a', borderLeft:   '2.5px solid #e85d0a' }} />
+                <div style={{ position: 'absolute', bottom: 10, right: 10, width: 20, height: 20, borderBottom: '2.5px solid #e85d0a', borderRight:  '2.5px solid #e85d0a' }} />
               </div>
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--text-muted)', textAlign: 'center', marginTop: 8 }}>
-              {('BarcodeDetector' in window)
-                ? 'Point camera at bottle barcode to scan — hold steady for best results'
-                : '⚠ Barcode detection not supported in this browser — switch to USB / Manual mode'}
+              Point camera at bottle barcode to scan — hold steady for best results
             </div>
           </div>
         )}
 
+        {/* Flash message */}
         {flash && (
-          <div style={{ padding: '8px 12px', borderRadius: 8, marginBottom: 10, fontSize: 12.5, fontWeight: 600,
-            background: flash.type === 'ok' ? 'rgba(10,124,82,0.08)' : 'rgba(212,42,42,0.08)',
-            color: flash.type === 'ok' ? 'var(--green)' : 'var(--red)',
+          <div style={{
+            padding: '8px 12px', borderRadius: 8, marginBottom: 10, fontSize: 12.5, fontWeight: 600,
+            background: flash.type === 'ok' ? 'rgba(10,124,82,0.08)'  : 'rgba(212,42,42,0.08)',
+            color:      flash.type === 'ok' ? 'var(--green)'           : 'var(--red)',
             border: `1px solid ${flash.type === 'ok' ? 'rgba(10,124,82,0.2)' : 'rgba(212,42,42,0.2)'}`,
-          }}>{flash.type === 'ok' ? '✓' : '✗'} {flash.msg}</div>
+          }}>
+            {flash.type === 'ok' ? '✓' : '✗'} {flash.msg}
+          </div>
         )}
 
+        {/* Result card */}
         {result && (
           <div style={{ borderRadius: 10, border: '1.5px solid var(--border)', overflow: 'hidden', animation: 'popIn 0.22s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+
+            {/* Result header */}
             <div style={{ padding: '11px 14px', background: '#0a0d12', display: 'flex', alignItems: 'center', gap: 10 }}>
               <Package size={14} color="#e85d0a" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 800, color: '#fff' }}>{result.bottle.id}</div>
                 <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)' }}>{result.bottle.serialNumber || '—'} · {result.bottle.assetName || '—'}</div>
               </div>
-              {/* Status badge — colour-coded per bottle status */}
               <span style={{
                 fontSize: 9.5, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
                 background: statusIs('Returned to Lab') ? 'rgba(10,124,82,0.25)'
@@ -282,22 +275,34 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
                 color:      statusIs('Returned to Lab') ? '#4ade80'
                           : statusIs('With Customer')   ? '#fbbf24'
                           :                               '#c084fc',
-              }}>{result.bottle.status}</span>
+              }}>
+                {result.bottle.status}
+              </span>
             </div>
+
+            {/* Result details */}
             <div style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px', fontSize: 12 }}>
               {[
-                ['Batch',       result.batch?.id],
-                ['Batch Status', result.batch ? (['Order Placed','Dispatched','In Transit','Delivered'][result.batch.stage] ?? '—') : '—'],
-                ['Customer',    result.batch?.customer],
-                ['Dispatched',  result.bottle.dispatchedDate ? fmtDate(result.bottle.dispatchedDate) : '—'],
-                ['Returned',    result.bottle.returnedDate   ? fmtDate(result.bottle.returnedDate)   : '—'],
+                ['Batch',        result.batch?.id],
+                ['Batch Status', result.batch ? (['Order Placed', 'Dispatched', 'In Transit', 'Delivered'][result.batch.stage] ?? '—') : '—'],
+                ['Customer',     result.batch?.customer],
+                ['Dispatched',   result.bottle.dispatchedDate ? fmtDate(result.bottle.dispatchedDate) : '—'],
+                ['Returned',     result.bottle.returnedDate   ? fmtDate(result.bottle.returnedDate)   : '—'],
               ].map(([l, v]) => (
-                <div key={l}><span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{l}:</span> <strong>{v || '—'}</strong></div>
+                <div key={l}>
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{l}:</span>{' '}
+                  <strong>{v || '—'}</strong>
+                </div>
               ))}
             </div>
+
+            {/* Result actions */}
             <div style={{ padding: '10px 14px', background: '#f9fafb', borderTop: '1px solid var(--border)', display: 'flex', gap: 8 }}>
               {statusIs('With Customer') && (
-                <button onClick={() => handleAction('return')} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: '#FF4717', color: '#fff', border: '1.5px solid #FF4717', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                <button
+                  onClick={() => handleAction('return')}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', background: '#FF4717', color: '#fff', border: '1.5px solid #FF4717', borderRadius: 8, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                >
                   <ArrowLeft size={13} strokeWidth={2.5} /> Mark Returned to Lab
                 </button>
               )}
@@ -311,8 +316,14 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
                   <Package size={13} strokeWidth={2} /> Not yet delivered to customer
                 </div>
               )}
-              <button onClick={() => { setResult(null); setInput(''); inputRef.current?.focus() }} style={{ padding: '9px 14px', background: '#fff', border: '1.5px solid #1A1A31', borderRadius: 8, fontWeight: 600, fontSize: 11.5, cursor: 'pointer', color: '#1A1A31' }}>Clear</button>
+              <button
+                onClick={() => { setResult(null); setInput(''); inputRef.current?.focus() }}
+                style={{ padding: '9px 14px', background: '#fff', border: '1.5px solid #1A1A31', borderRadius: 8, fontWeight: 600, fontSize: 11.5, cursor: 'pointer', color: '#1A1A31' }}
+              >
+                Clear
+              </button>
             </div>
+
           </div>
         )}
       </div>
@@ -320,10 +331,8 @@ export function ScannerPanel({ bottles, setBottles, batches, onClose }) {
   )
 }
 
-
-
 /* ════════════════════════════════════════════════════════════════════
-   BATCH FORM — unchanged UI; save calls API
+   BATCH FORM — asset dropdown + customer search
 ═══════════════════════════════════════════════════════════════════════ */
 function AssetDropdown({ value, options, onSelect }) {
   const [search, setSearch] = useState(value || '')
@@ -349,7 +358,6 @@ function AssetDropdown({ value, options, onSelect }) {
     onSelect(opt)
   }
 
-  const isSelected = options.some(o => o.label === search)
   const ORANGE = '#FF4717'
 
   return (
@@ -369,8 +377,10 @@ function AssetDropdown({ value, options, onSelect }) {
           style={{ flex: 1, border: 'none', outline: 'none', fontSize: 12.5, padding: '6px 8px', background: 'transparent', fontWeight: 400, color: 'var(--text-primary)', minWidth: 0 }}
         />
         {search && (
-          <button onMouseDown={e => { e.preventDefault(); setSearch(''); onSelect(null); inputRef.current?.focus(); setOpen(true) }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', paddingRight: 6, flexShrink: 0 }}>
+          <button
+            onMouseDown={e => { e.preventDefault(); setSearch(''); onSelect(null); inputRef.current?.focus(); setOpen(true) }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', paddingRight: 6, flexShrink: 0 }}
+          >
             <XIcon size={11} />
           </button>
         )}
@@ -386,7 +396,8 @@ function AssetDropdown({ value, options, onSelect }) {
             <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>No assets found</div>
           )}
           {filtered.map((opt, i) => (
-            <div key={opt.key ?? i}
+            <div
+              key={opt.key ?? i}
               onMouseDown={e => { e.preventDefault(); handleSelect(opt) }}
               style={{
                 padding: '8px 13px', cursor: 'pointer', fontSize: 12.5,
@@ -419,12 +430,26 @@ function AssetRow({ item, onRemove, onChange, assetOptions }) {
           else     onChange({ assetName: '', serialNumber: '', assetKey: null })
         }}
       />
-      <input type="text" value={item.serialNumber} onChange={e => onChange({ serialNumber: e.target.value })} placeholder="Serial No."
-        style={{ width: 100, flexShrink: 0, fontSize: 12, padding: '6px 9px', fontFamily: 'var(--font-mono)', borderRadius: 7, border: '1.5px solid rgba(103,48,194,0.25)', background: item.serialNumber ? 'rgba(10,124,82,0.04)' : '#fff', color: 'inherit', fontWeight: 700 }} />
-      <input type="number" min={1} max={200} value={item.qty}
-        onChange={e => onChange({ qty: e.target.value === '' ? '' : Math.max(1, +e.target.value) })} placeholder="#"
-        style={{ width: 60, flexShrink: 0, fontSize: 13, padding: '6px 9px', textAlign: 'center', fontWeight: 700 }} />
-      <button onClick={onRemove} style={{ flexShrink: 0, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(212,42,42,0.06)', border: '1px solid rgba(212,42,42,0.18)', borderRadius: 6, cursor: 'pointer', color: 'var(--red)' }}>
+      <input
+        type="text"
+        value={item.serialNumber}
+        onChange={e => onChange({ serialNumber: e.target.value })}
+        placeholder="Serial No."
+        style={{ width: 100, flexShrink: 0, fontSize: 12, padding: '6px 9px', fontFamily: 'var(--font-mono)', borderRadius: 7, border: '1.5px solid rgba(103,48,194,0.25)', background: item.serialNumber ? 'rgba(10,124,82,0.04)' : '#fff', color: 'inherit', fontWeight: 700 }}
+      />
+      <input
+        type="number"
+        min={1}
+        max={200}
+        value={item.qty}
+        onChange={e => onChange({ qty: e.target.value === '' ? '' : Math.max(1, +e.target.value) })}
+        placeholder="#"
+        style={{ width: 60, flexShrink: 0, fontSize: 13, padding: '6px 9px', textAlign: 'center', fontWeight: 700 }}
+      />
+      <button
+        onClick={onRemove}
+        style={{ flexShrink: 0, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(212,42,42,0.06)', border: '1px solid rgba(212,42,42,0.18)', borderRadius: 6, cursor: 'pointer', color: 'var(--red)' }}
+      >
         <XIcon size={11} strokeWidth={2.5} />
       </button>
     </div>
@@ -432,23 +457,25 @@ function AssetRow({ item, onRemove, onChange, assetOptions }) {
 }
 
 function CustomerSearchDropdown({ value, customerKey, onChange, onSelect }) {
-  const [customers,     setCustomers]     = useState([])
-  const [search,        setSearch]        = useState(value || '')
-  const [open,          setOpen]          = useState(false)
-  const [loadingList,   setLoadingList]   = useState(false)
+  const [customers,   setCustomers]   = useState([])
+  const [search,      setSearch]      = useState(value || '')
+  const [open,        setOpen]        = useState(false)
+  const [loadingList, setLoadingList] = useState(false)
   const wrapRef  = useRef()
   const inputRef = useRef()
   const toast    = useToast()
 
-  // Load customer list once on mount
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoadingList(true)
       try {
-        const res = await getTotCustomers()
+        const res  = await getTotCustomers()
         if (!cancelled) {
-          const list = (Array.isArray(res?.data) ? res.data : []).map(c => ({ CustomerKey: c.customerKey ?? c.CustomerKey, CustomerName: c.customerName ?? c.CustomerName }))
+          const list = (Array.isArray(res?.data) ? res.data : []).map(c => ({
+            CustomerKey:  c.customerKey  ?? c.CustomerKey,
+            CustomerName: c.customerName ?? c.CustomerName,
+          }))
           setCustomers(list)
         }
       } catch { if (!cancelled) toast('Failed to load customers', 'error') }
@@ -458,10 +485,8 @@ function CustomerSearchDropdown({ value, customerKey, onChange, onSelect }) {
     return () => { cancelled = true }
   }, [])
 
-  // Keep search text in sync if parent clears the value
   useEffect(() => { if (!value) setSearch('') }, [value])
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handle(e) { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handle)
@@ -481,13 +506,12 @@ function CustomerSearchDropdown({ value, customerKey, onChange, onSelect }) {
 
   function handleInput(e) {
     setSearch(e.target.value)
-    onChange(e.target.value)   // allow free-type fallback
+    onChange(e.target.value)
     setOpen(true)
     if (!e.target.value) onSelect('', null)
   }
 
   const ORANGE = '#FF4717'
-  const isSelected = !!customerKey
 
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
@@ -507,18 +531,15 @@ function CustomerSearchDropdown({ value, customerKey, onChange, onSelect }) {
           onChange={handleInput}
           onFocus={() => setOpen(true)}
           placeholder={loadingList ? 'Loading customers…' : 'Search customer…'}
-          style={{
-            flex: 1, border: 'none', outline: 'none', fontSize: 13,
-            padding: '9px 10px', background: 'transparent',
-            fontWeight: 400,
-            color: 'var(--text-primary)',
-          }}
+          style={{ flex: 1, border: 'none', outline: 'none', fontSize: 13, padding: '9px 10px', background: 'transparent', fontWeight: 400, color: 'var(--text-primary)' }}
         />
         {search && (
           <button
             onClick={() => { setSearch(''); onSelect('', null); inputRef.current?.focus(); setOpen(true) }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', paddingRight: 8, flexShrink: 0 }}
-          ><XIcon size={12} /></button>
+          >
+            <XIcon size={12} />
+          </button>
         )}
       </div>
 
@@ -578,11 +599,11 @@ function BatchForm({ onSave, onClose }) {
   const ORANGE = '#FF4717'
   const DARK   = '#1A1A31'
   const toast  = useToast()
-  const [step,           setStep]           = useState(0)
-  const [saving,         setSaving]         = useState(false)
-  const [loadingAssets,  setLoadingAssets]  = useState(false)
-  const [availableAssets,setAvailableAssets]= useState([])   // options for asset dropdown
-  const [form,           setForm]           = useState({
+  const [step,            setStep]            = useState(0)
+  const [saving,          setSaving]          = useState(false)
+  const [loadingAssets,   setLoadingAssets]   = useState(false)
+  const [availableAssets, setAvailableAssets] = useState([])
+  const [form, setForm] = useState({
     customer: '', customerKey: null,
     contact: '', address: '', notes: '',
     orderDate: today(), sampleType: 'Transformer Oil',
@@ -591,7 +612,6 @@ function BatchForm({ onSave, onClose }) {
   const up    = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const total = form.assetItems.reduce((s, i) => s + (+i.qty || 0), 0)
 
-  // Build dropdown options from availableAssets
   const assetOptions = useMemo(() =>
     availableAssets.map(a => ({
       key:    a.transformerKey  ?? a.TransformerKey,
@@ -600,7 +620,6 @@ function BatchForm({ onSave, onClose }) {
     })).filter(o => o.label),
   [availableAssets])
 
-  // When a customer is selected: fetch their assets as OPTIONS only; keep assetItems empty
   async function handleCustomerSelect(customerName, customerKey) {
     setForm(p => ({ ...p, customer: customerName, customerKey, assetItems: [] }))
     setAvailableAssets([])
@@ -617,9 +636,9 @@ function BatchForm({ onSave, onClose }) {
     setLoadingAssets(false)
   }
 
-  function addItem()        { setForm(p => ({ ...p, assetItems: [...p.assetItems, { id: Date.now(), assetName: '', serialNumber: '', qty: 1 }] })) }
-  function removeItem(idx)  { setForm(p => ({ ...p, assetItems: p.assetItems.filter((_, i) => i !== idx) })) }
-  function updateItem(idx, patch) { setForm(p => ({ ...p, assetItems: p.assetItems.map((item, i) => i === idx ? { ...item, ...patch } : item) })) }
+  function addItem()               { setForm(p => ({ ...p, assetItems: [...p.assetItems, { id: Date.now(), assetName: '', serialNumber: '', qty: 1 }] })) }
+  function removeItem(idx)         { setForm(p => ({ ...p, assetItems: p.assetItems.filter((_, i) => i !== idx) })) }
+  function updateItem(idx, patch)  { setForm(p => ({ ...p, assetItems: p.assetItems.map((item, i) => i === idx ? { ...item, ...patch } : item) })) }
 
   const stepValid = [
     form.customer.trim().length > 0,
@@ -632,7 +651,6 @@ function BatchForm({ onSave, onClose }) {
     if (!canFinish) return
     setSaving(true)
     try {
-      // 1) Create the batch
       const batchPayload = {
         Id:              null,
         BatchStatus:     'Order Placed',
@@ -658,7 +676,6 @@ function BatchForm({ onSave, onClose }) {
       const rawBatch = Array.isArray(batchRes?.data) ? batchRes.data[0] : batchRes?.data
       if (!rawBatch?.id && !rawBatch?.Id) throw new Error('Batch save failed')
 
-      // 2) Bulk-insert bottles
       const bottleList = form.assetItems.flatMap(ai =>
         Array.from({ length: +ai.qty }, () => ({
           AssetKey:     ai.assetKey ?? null,
@@ -668,11 +685,9 @@ function BatchForm({ onSave, onClose }) {
       )
       await bulkInsertBottles(rawBatch.id ?? rawBatch.Id, bottleList)
 
-      // 3) Normalise and enrich with form data the SP response may not have
-      const normBatch = normaliseApiBatch(rawBatch)
-      // Enrich with known values from the form (SP returns 0 counts at insert time)
+      const normBatch      = normaliseApiBatch(rawBatch)
       normBatch.qty        = total
-      normBatch.withCust   = total   // all bottles start "With Customer" on dispatch
+      normBatch.withCust   = total
       normBatch.returned   = 0
       normBatch.assetCount = form.assetItems.length
       normBatch.assetItems = form.assetItems.map(ai => ({
@@ -692,21 +707,31 @@ function BatchForm({ onSave, onClose }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {/* Step indicator bar */}
+      {/* Step indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 24, padding: '0 2px' }}>
         {STEPS.map((st, i) => {
           const done   = i < step
           const active = i === step
           return (
             <React.Fragment key={st.n}>
-              <div onClick={() => done && setStep(i)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: done ? 'pointer' : 'default', flex: 'none' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              <div
+                onClick={() => done && setStep(i)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: done ? 'pointer' : 'default', flex: 'none' }}
+              >
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: done ? ORANGE : active ? '#fff' : '#f1f3f5',
                   border: `2px solid ${done || active ? ORANGE : '#dde1e7'}`,
-                  boxShadow: active ? `0 0 0 4px ${ORANGE}22` : 'none', transition: 'all 0.2s' }}>
-                  {done ? <Check size={13} color="#fff" strokeWidth={3} /> : <span style={{ fontSize: 11, fontWeight: 800, color: active ? ORANGE : '#adb5bd' }}>{st.n}</span>}
+                  boxShadow: active ? `0 0 0 4px ${ORANGE}22` : 'none', transition: 'all 0.2s',
+                }}>
+                  {done
+                    ? <Check size={13} color="#fff" strokeWidth={3} />
+                    : <span style={{ fontSize: 11, fontWeight: 800, color: active ? ORANGE : '#adb5bd' }}>{st.n}</span>
+                  }
                 </div>
-                <span style={{ fontSize: 9, fontWeight: active || done ? 700 : 500, color: active ? ORANGE : done ? '#6b7280' : '#adb5bd', whiteSpace: 'nowrap' }}>{st.label}</span>
+                <span style={{ fontSize: 9, fontWeight: active || done ? 700 : 500, color: active ? ORANGE : done ? '#6b7280' : '#adb5bd', whiteSpace: 'nowrap' }}>
+                  {st.label}
+                </span>
               </div>
               {i < STEPS.length - 1 && (
                 <div style={{ flex: 1, height: 2, background: i < step ? ORANGE : '#e5e7eb', margin: '0 4px', marginBottom: 22, borderRadius: 2, transition: 'background 0.3s' }} />
@@ -729,11 +754,18 @@ function BatchForm({ onSave, onClose }) {
                   onSelect={handleCustomerSelect}
                 />
               </div>
-              <div className="form-group"><label>Contact Person</label><input type="text" value={form.contact} onChange={e => up('contact', e.target.value)} placeholder="Contact name" /></div>
+              <div className="form-group">
+                <label>Contact Person</label>
+                <input type="text" value={form.contact} onChange={e => up('contact', e.target.value)} placeholder="Contact name" />
+              </div>
             </div>
-            <div className="form-group"><label>Delivery Address</label><textarea value={form.address} onChange={e => up('address', e.target.value)} placeholder="Street, City, Postcode, Country" style={{ height: 72, resize: 'vertical' }} /></div>
+            <div className="form-group">
+              <label>Delivery Address</label>
+              <textarea value={form.address} onChange={e => up('address', e.target.value)} placeholder="Street, City, Postcode, Country" style={{ height: 72, resize: 'vertical' }} />
+            </div>
           </div>
         )}
+
         {step === 1 && (
           <div>
             {loadingAssets ? (
@@ -765,7 +797,10 @@ function BatchForm({ onSave, onClose }) {
                     />
                   ))}
                 </div>
-                <button onClick={addItem} style={{ width: '100%', padding: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--bg)', border: `1.5px dashed ${ORANGE}55`, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: ORANGE }}>
+                <button
+                  onClick={addItem}
+                  style={{ width: '100%', padding: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--bg)', border: `1.5px dashed ${ORANGE}55`, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: ORANGE }}
+                >
                   <Plus size={13} strokeWidth={2.5} /> Add Asset
                 </button>
                 {total > 0 && <div style={{ marginTop: 10, textAlign: 'right', fontSize: 11.5, fontWeight: 700, color: ORANGE }}>{total} bottles total</div>}
@@ -773,15 +808,28 @@ function BatchForm({ onSave, onClose }) {
             )}
           </div>
         )}
+
         {step === 2 && (
           <div>
             <div className="grid-2">
-              <div className="form-group"><label>Sample Type</label><select value={form.sampleType} onChange={e => up('sampleType', e.target.value)}>{SAMPLE_TYPES.map(c => <option key={c}>{c}</option>)}</select></div>
-              <div className="form-group"><label>Order Date</label><DatePicker value={form.orderDate} onChange={v => up('orderDate', v)} /></div>
+              <div className="form-group">
+                <label>Sample Type</label>
+                <select value={form.sampleType} onChange={e => up('sampleType', e.target.value)}>
+                  {SAMPLE_TYPES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Order Date</label>
+                <DatePicker value={form.orderDate} onChange={v => up('orderDate', v)} />
+              </div>
             </div>
-            <div className="form-group"><label>Notes</label><textarea value={form.notes} onChange={e => up('notes', e.target.value)} placeholder="Special instructions…" style={{ height: 64, resize: 'vertical' }} /></div>
+            <div className="form-group">
+              <label>Notes</label>
+              <textarea value={form.notes} onChange={e => up('notes', e.target.value)} placeholder="Special instructions…" style={{ height: 64, resize: 'vertical' }} />
+            </div>
           </div>
         )}
+
         {step === 3 && (
           <div>
             <div className="grid-2">
@@ -789,7 +837,7 @@ function BatchForm({ onSave, onClose }) {
                 <label>Courier Service</label>
                 <select value={form.courierService} onChange={e => up('courierService', e.target.value)}>
                   <option value="">Select courier…</option>
-                  {(COURIERS||[]).map(c => <option key={c}>{c}</option>)}
+                  {(COURIERS || []).map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div className="form-group">
@@ -800,7 +848,13 @@ function BatchForm({ onSave, onClose }) {
             <div style={{ marginTop: 8, padding: '12px 14px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}>
               <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: 8 }}>Batch Summary</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 16px' }}>
-                {[['Customer', form.customer||'—'], ['Contact', form.contact||'—'], ['Bottles', `${total}`], ['Sample Type', form.sampleType], ['Order Date', form.orderDate]].map(([l,v]) => (
+                {[
+                  ['Customer',    form.customer  || '—'],
+                  ['Contact',     form.contact   || '—'],
+                  ['Bottles',     `${total}`],
+                  ['Sample Type', form.sampleType],
+                  ['Order Date',  form.orderDate],
+                ].map(([l, v]) => (
                   <div key={l}><span style={{ color: 'var(--text-muted)' }}>{l}: </span><strong>{v}</strong></div>
                 ))}
               </div>
@@ -809,22 +863,32 @@ function BatchForm({ onSave, onClose }) {
         )}
       </div>
 
+      {/* Form footer navigation */}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', paddingTop: 18, marginTop: 8, borderTop: '1px solid var(--border)' }}>
-        <button onClick={step === 0 ? onClose : () => setStep(s => s - 1)}
-          style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', background:'#fff', border:`1.5px solid ${DARK}`, borderRadius:8, color:DARK, fontWeight:700, fontSize:12.5, cursor:'pointer' }}>
+        <button
+          onClick={step === 0 ? onClose : () => setStep(s => s - 1)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: '#fff', border: `1.5px solid ${DARK}`, borderRadius: 8, color: DARK, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+        >
           {step === 0 ? 'Cancel' : <><ArrowLeft size={13} /> Back</>}
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          {step < STEPS.length - 1
-            ? <button onClick={() => setStep(s => s + 1)} disabled={!stepValid[step] || (step === 0 && loadingAssets)}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', background:ORANGE, border:`1.5px solid ${ORANGE}`, borderRadius:8, color:'#fff', fontWeight:700, fontSize:12.5, cursor:(stepValid[step] && !(step === 0 && loadingAssets))?'pointer':'not-allowed', opacity:(stepValid[step] && !(step === 0 && loadingAssets))?1:0.5 }}>
-                Next <ArrowRight size={13} />
-              </button>
-            : <button onClick={handleSave} disabled={!canFinish || saving}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', background:ORANGE, border:`1.5px solid ${ORANGE}`, borderRadius:8, color:'#fff', fontWeight:700, fontSize:12.5, cursor:canFinish&&!saving?'pointer':'not-allowed', opacity:canFinish&&!saving?1:0.5 }}>
-                <Plus size={14} strokeWidth={2} /> {saving ? 'Saving…' : `Create Batch (${total} bottles)`}
-              </button>
-          }
+          {step < STEPS.length - 1 ? (
+            <button
+              onClick={() => setStep(s => s + 1)}
+              disabled={!stepValid[step] || (step === 0 && loadingAssets)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: ORANGE, border: `1.5px solid ${ORANGE}`, borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: (stepValid[step] && !(step === 0 && loadingAssets)) ? 'pointer' : 'not-allowed', opacity: (stepValid[step] && !(step === 0 && loadingAssets)) ? 1 : 0.5 }}
+            >
+              Next <ArrowRight size={13} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSave}
+              disabled={!canFinish || saving}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: ORANGE, border: `1.5px solid ${ORANGE}`, borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: canFinish && !saving ? 'pointer' : 'not-allowed', opacity: canFinish && !saving ? 1 : 0.5 }}
+            >
+              <Plus size={14} strokeWidth={2} /> {saving ? 'Saving…' : `Create Batch (${total} bottles)`}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -832,25 +896,20 @@ function BatchForm({ onSave, onClose }) {
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   BATCH DETAIL MODAL — API-wired for advance + markAll
+   BATCH DETAIL MODAL
 ═══════════════════════════════════════════════════════════════════════ */
 function BatchDetailModal({ batch, bottles, loading, onClose, onAdvanceStage, onMarkAllReturned }) {
   if (!batch) return null
-  // Prefer detail-loaded bottle counts; fall back to API list counts from batch header
   const bbs      = bottles.filter(b => b.batchId === batch.id)
-  const total    = bbs.length    || batch.qty      || 0
-  const withCust = bbs.length > 0
-    ? bbs.filter(b => b.status === 'With Customer').length
-    : (batch.withCust ?? 0)
-  const returned = bbs.length > 0
-    ? bbs.filter(b => b.status === 'Returned to Lab').length
-    : (batch.returned ?? 0)
+  const total    = bbs.length || batch.qty || 0
+  const withCust = bbs.length > 0 ? bbs.filter(b => b.status === 'With Customer').length  : (batch.withCust ?? 0)
+  const returned = bbs.length > 0 ? bbs.filter(b => b.status === 'Returned to Lab').length : (batch.returned ?? 0)
   const pct      = total > 0 ? Math.round((returned / total) * 100) : 0
-  const stageKeys   = ['orderDate','dispatchedDate','transitDate','deliveredDate']
-  const stageLabels = ['Order Placed','Dispatched','In Transit','Delivered']
+  const stageKeys   = ['orderDate', 'dispatchedDate', 'transitDate', 'deliveredDate']
+  const stageLabels = ['Order Placed', 'Dispatched', 'In Transit', 'Delivered']
 
   return (
-    <Modal open onClose={onClose} title={`${batch.id} — Details${loading ? " (loading…)" : ""}`} large>
+    <Modal open onClose={onClose} title={`${batch.id} — Details${loading ? ' (loading…)' : ''}`} large>
       <div style={{ padding: '14px 16px', background: 'var(--bg)', borderRadius: 10, marginBottom: 16, border: '1px solid var(--border)' }}>
         <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', color: 'var(--text-muted)', marginBottom: 12 }}>Batch Lifecycle — click current stage to advance</div>
         <LifecycleStepper batch={batch} onAdvance={stage => { onAdvanceStage(batch.id, stage); onClose() }} />
@@ -858,14 +917,20 @@ function BatchDetailModal({ batch, bottles, loading, onClose, onAdvanceStage, on
           {stageLabels.map((l, i) => (
             <div key={l} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: 8.5, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 2 }}>{l}</div>
-              <div style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', fontWeight: 700, color: i <= batch.stage ? BATCH_LIFECYCLE[i].color : 'var(--text-muted)' }}>{batch[stageKeys[i]] ? fmtDate(batch[stageKeys[i]]) : '—'}</div>
+              <div style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', fontWeight: 700, color: i <= batch.stage ? BATCH_LIFECYCLE[i].color : 'var(--text-muted)' }}>
+                {batch[stageKeys[i]] ? fmtDate(batch[stageKeys[i]]) : '—'}
+              </div>
             </div>
           ))}
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
-        {[['Total', total, 'var(--accent)'], ['With Customer', withCust, 'var(--amber)'], ['Returned', returned, 'var(--green)']].map(([l, v, c]) => (
+        {[
+          ['Total',         total,    'var(--accent)'],
+          ['With Customer', withCust, 'var(--amber)'],
+          ['Returned',      returned, 'var(--green)'],
+        ].map(([l, v, c]) => (
           <div key={l} style={{ textAlign: 'center', padding: '12px', borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
             <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginTop: 4 }}>{l}</div>
@@ -893,19 +958,39 @@ function BatchDetailModal({ batch, bottles, loading, onClose, onAdvanceStage, on
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px', fontSize: 12.5, marginBottom: 14 }}>
-        {[['Customer', batch.customer], ['Contact', batch.contact], ['Sample Type', batch.sampleType || '—'],
-          ['Courier', batch.courierService || '—'], ['Tracking No.', batch.trackingNumber || '—']].map(([l, v]) => (
-          <div key={l}><div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{l}</div>
+        {[
+          ['Customer',     batch.customer],
+          ['Contact',      batch.contact],
+          ['Sample Type',  batch.sampleType     || '—'],
+          ['Courier',      batch.courierService  || '—'],
+          ['Tracking No.', batch.trackingNumber  || '—'],
+        ].map(([l, v]) => (
+          <div key={l}>
+            <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>{l}</div>
             <strong style={{ fontFamily: l === 'Tracking No.' ? 'var(--font-mono)' : 'inherit', fontSize: l === 'Tracking No.' ? 11.5 : 'inherit' }}>{v}</strong>
           </div>
         ))}
-        {batch.address && <div style={{ gridColumn: '1/-1' }}><div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivery Address</div><span style={{ color: 'var(--text-secondary)' }}>{batch.address}</span></div>}
-        {batch.notes  && <div style={{ gridColumn: '1/-1' }}><div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Notes</div><span style={{ color: 'var(--text-secondary)' }}>{batch.notes}</span></div>}
+        {batch.address && (
+          <div style={{ gridColumn: '1/-1' }}>
+            <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Delivery Address</div>
+            <span style={{ color: 'var(--text-secondary)' }}>{batch.address}</span>
+          </div>
+        )}
+        {batch.notes && (
+          <div style={{ gridColumn: '1/-1' }}>
+            <div style={{ fontSize: 9.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Notes</div>
+            <span style={{ color: 'var(--text-secondary)' }}>{batch.notes}</span>
+          </div>
+        )}
       </div>
+
       <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-        <button onClick={onClose} style={{ padding:'8px 18px', background:'#fff', border:'1.5px solid #1A1A31', borderRadius:8, color:'#1A1A31', fontWeight:700, fontSize:12.5, cursor:'pointer' }}>Close</button>
+        <button onClick={onClose} style={{ padding: '8px 18px', background: '#fff', border: '1.5px solid #1A1A31', borderRadius: 8, color: '#1A1A31', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}>Close</button>
         {withCust > 0 && (
-          <button onClick={() => { onMarkAllReturned(batch.id); onClose() }} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', background:'#FF4717', border:'1.5px solid #FF4717', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer' }}>
+          <button
+            onClick={() => { onMarkAllReturned(batch.id); onClose() }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: '#FF4717', border: '1.5px solid #FF4717', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+          >
             <ArrowLeft size={13} strokeWidth={2} /> Mark All {withCust} Returned
           </button>
         )}
@@ -915,60 +1000,51 @@ function BatchDetailModal({ batch, bottles, loading, onClose, onAdvanceStage, on
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   MAIN BATCHES PAGE — API-wired, identical UI
+   MAIN BATCHES PAGE
 ═══════════════════════════════════════════════════════════════════════ */
 const TABS = [
-  { key: 'all',     label: 'All'         },
+  { key: 'all',     label: 'All'          },
   { key: 'ordered', label: 'Order Placed' },
-  { key: 'transit', label: 'In Transit'  },
-  { key: 'done',    label: 'Delivered'   },
+  { key: 'transit', label: 'In Transit'   },
+  { key: 'done',    label: 'Delivered'    },
 ]
 
 export default function Batches({ onTopbarUpdate }) {
-  const [batches,       setBatches]       = useState([])
-  const [bottles,       setBottles]       = useState([])
-
+  const [batches,      setBatches]      = useState([])
+  const [bottles,      setBottles]      = useState([])
   const toast = useToast()
-  const [showCreate, setShowCreate] = useState(false)
-  const [viewBatch,  setViewBatch]  = useState(null)
-  const [viewLoading,setViewLoading]= useState(false)
-  const [printBatch, setPrintBatch] = useState(null)
-  const [printLabels,setPrintLabels]= useState(null)   // label data from API
-  const [showScan,   setShowScan]   = useState(false)
-  // ── Server-side pagination state ──────────────────────────────────
-  const [pageSize,    setPageSize]    = useState(15)
-  const [page,        setPage]        = useState(1)
-  const [totalCount,  setTotalCount]  = useState(0)
-  const [search,      setSearch]      = useState('')
-  const [tab,         setTab]         = useState('all')
-  const [loading,     setLoading]     = useState(false)
-  const [sortKey,     setSortKey]     = useState('orderDate')
-  const [sortDir,     setSortDir]     = useState('desc')
+  const [showCreate,   setShowCreate]   = useState(false)
+  const [viewBatch,    setViewBatch]    = useState(null)
+  const [viewLoading,  setViewLoading]  = useState(false)
+  const [printBatch,   setPrintBatch]   = useState(null)
+  const [printLabels,  setPrintLabels]  = useState(null)
+  const [showScan,     setShowScan]     = useState(false)
+  const [pageSize,     setPageSize]     = useState(15)
+  const [page,         setPage]         = useState(1)
+  const [totalCount,   setTotalCount]   = useState(0)
+  const [search,       setSearch]       = useState('')
+  const [tab,          setTab]          = useState('all')
+  const [loading,      setLoading]      = useState(false)
+  const [sortKey,      setSortKey]      = useState('orderDate')
+  const [sortDir,      setSortDir]      = useState('desc')
 
-  // Map tab key → BatchStatus string the API understands
   const TAB_STATUS = { all: '', ordered: 'Order Placed', transit: 'In Transit', done: 'Delivered' }
 
-  // ── Unified loader — called any time page / pageSize / search / tab changes ─
   const loadBatches = useCallback(async (opts = {}) => {
-    const p   = opts.page     ?? page
-    const ps  = opts.pageSize ?? pageSize
-    const q   = opts.search   ?? search
-    const t   = opts.tab      ?? tab
+    const p  = opts.page     ?? page
+    const ps = opts.pageSize ?? pageSize
+    const q  = opts.search   ?? search
+    const t  = opts.tab      ?? tab
     setLoading(true)
     try {
-      const res = await getBatches({
-        page:        p,
-        pageSize:    ps,
-        searchText:  q,
-        batchStatus: TAB_STATUS[t] ?? '',
-      })
-      const envelope  = res?.data
-      const list      = Array.isArray(envelope?.data)  ? envelope.data
-                      : Array.isArray(envelope?.Data)  ? envelope.Data
-                      : Array.isArray(envelope)        ? envelope
-                      : []
-      const total     = envelope?.totalCount ?? envelope?.TotalCount ?? list.length
-      const norm      = list.map(normaliseApiBatch)
+      const res      = await getBatches({ page: p, pageSize: ps, searchText: q, batchStatus: TAB_STATUS[t] ?? '' })
+      const envelope = res?.data
+      const list     = Array.isArray(envelope?.data) ? envelope.data
+                     : Array.isArray(envelope?.Data) ? envelope.Data
+                     : Array.isArray(envelope)       ? envelope
+                     : []
+      const total    = envelope?.totalCount ?? envelope?.TotalCount ?? list.length
+      const norm     = list.map(normaliseApiBatch)
       setBatches(norm)
       setTotalCount(total)
       if (onTopbarUpdate) {
@@ -985,7 +1061,7 @@ export default function Batches({ onTopbarUpdate }) {
     async function run() {
       setLoading(true)
       try {
-        const res = await getBatches({ page: 1, pageSize, searchText: '', batchStatus: '' })
+        const res      = await getBatches({ page: 1, pageSize, searchText: '', batchStatus: '' })
         if (cancelled) return
         const envelope = res?.data
         const list     = Array.isArray(envelope?.data) ? envelope.data
@@ -1007,26 +1083,22 @@ export default function Batches({ onTopbarUpdate }) {
     return () => { cancelled = true }
   }, []) // eslint-disable-line
 
-  // Re-fetch whenever page / pageSize / search / tab changes (skip first render handled above)
   const isFirstRender = useRef(true)
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return }
     loadBatches({ page, pageSize, search, tab })
   }, [page, pageSize, search, tab]) // eslint-disable-line
 
-  // Reset to page 1 when search or tab changes
   useEffect(() => { setPage(1) }, [search, tab])
 
-  // Client-side sort on the currently loaded page
   const paged = useMemo(() => {
-    const s = [...batches].sort((a, b) => {
+    return [...batches].sort((a, b) => {
       const av = a[sortKey] ?? ''
       const bv = b[sortKey] ?? ''
       if (av < bv) return sortDir === 'asc' ? -1 : 1
-      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      if (av > bv) return sortDir === 'asc' ?  1 : -1
       return 0
     })
-    return s
   }, [batches, sortKey, sortDir])
 
   function toggleSort(key) {
@@ -1036,8 +1108,6 @@ export default function Batches({ onTopbarUpdate }) {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
 
-  // Tab counts come from API totalCount (only accurate for the active tab).
-  // For inactive tabs keep whatever we last knew — just show the active total.
   const counts = {
     all:     tab === 'all'     ? totalCount : batches.length,
     ordered: tab === 'ordered' ? totalCount : batches.filter(b => b.stage === 0).length,
@@ -1045,21 +1115,17 @@ export default function Batches({ onTopbarUpdate }) {
     done:    tab === 'done'    ? totalCount : batches.filter(b => b.stage === 3).length,
   }
 
-  // ── Create batch — reload page 1 after insert ────────────────────
   async function createBatch(normBatch) {
-    // Optimistic insert so something appears immediately
     setBatches(p => {
       const exists = p.some(b => b.id === normBatch.id)
       return exists ? p : [normBatch, ...p]
     })
-    // Then reload from API to get correct assetCount, counts, and all fields
     try {
       await loadBatches({ page: 1 })
       setPage(1)
-    } catch { /* keep optimistic state if reload fails */ }
+    } catch { /* keep optimistic state */ }
   }
 
-  // ── Advance stage — API call ─────────────────────────────────────────
   async function advanceStage(batchId) {
     const batch = batches.find(b => b.id === batchId)
     if (!batch || batch.stage >= 3) return
@@ -1068,7 +1134,6 @@ export default function Batches({ onTopbarUpdate }) {
     const dateField  = STATUS_DATE_FIELD[nextStatus]
     const now        = new Date().toISOString()
     try {
-      // Preserve all previously set stage dates so the backend doesn't null them out
       await saveBatch({
         Id:              batch._apiId,
         BatchStatus:     nextStatus,
@@ -1078,12 +1143,10 @@ export default function Batches({ onTopbarUpdate }) {
         DeliveredDate:   batch.deliveredDate  || null,
         [dateField]:     now,
       })
-      // Optimistic update — also recalculate withCust so the chip updates immediately
-      const dateKeys = ['orderDate','dispatchedDate','transitDate','deliveredDate']
+      const dateKeys = ['orderDate', 'dispatchedDate', 'transitDate', 'deliveredDate']
       setBatches(p => {
         const next = p.map(b => b.id === batchId
-          ? { ...b, stage: nextStage, [dateKeys[nextStage]]: today(),
-              withCust: nextStage >= 3 ? (batch.withCust ?? b.withCust ?? 0) : b.withCust }
+          ? { ...b, stage: nextStage, [dateKeys[nextStage]]: today(), withCust: nextStage >= 3 ? (batch.withCust ?? b.withCust ?? 0) : b.withCust }
           : b)
         if (onTopbarUpdate) {
           const withCustomer = next.reduce((sum, b) => sum + (b.withCust ?? 0), 0)
@@ -1096,9 +1159,8 @@ export default function Batches({ onTopbarUpdate }) {
     } catch (e) { toast(e.message || 'Failed to advance batch', 'error') }
   }
 
-  // ── Mark all returned — API call per bottle ──────────────────────────
   async function markAllReturned(batchId) {
-    const batch      = batches.find(b => b.id === batchId)
+    const batch        = batches.find(b => b.id === batchId)
     const batchBottles = bottles.filter(b => b.batchId === batchId && b.status === 'With Customer')
     try {
       await Promise.all(batchBottles.map(b => markBottleReturned(b._apiId, b._trackerId ?? batch?._apiId)))
@@ -1109,32 +1171,28 @@ export default function Batches({ onTopbarUpdate }) {
     } catch (e) { toast(e.message || 'Failed to mark returned', 'error') }
   }
 
-  // ── View batch detail — fetch fresh data including assets & all dates ─
   async function handleView(batch) {
-    setViewBatch(batch)   // open modal immediately with list data
+    setViewBatch(batch)
     setViewLoading(true)
     try {
-      const res = await getBatchDetail(batch._apiId)
-      const d   = res?.data
+      const res    = await getBatchDetail(batch._apiId)
+      const d      = res?.data
       if (!d) return
-      const header  = d.batch   ?? d.Batch
-      const assets  = Array.isArray(d.assets)  ? d.assets  : Array.isArray(d.Assets)  ? d.Assets  : []
-      const bots    = Array.isArray(d.bottles) ? d.bottles : Array.isArray(d.Bottles) ? d.Bottles : []
+      const header = d.batch  ?? d.Batch
+      const assets = Array.isArray(d.assets)  ? d.assets  : Array.isArray(d.Assets)  ? d.Assets  : []
+      const bots   = Array.isArray(d.bottles) ? d.bottles : Array.isArray(d.Bottles) ? d.Bottles : []
 
-      // Normalise bottles first so we can derive serial numbers per asset
       const normBots = bots.map(b => {
         const nb = normaliseApiBottle(b)
         nb.batchId = batch.id
         return nb
       })
 
-      // Build assetItems — serial comes from first matching bottle (BatchAssets has no SerialNumber)
       const assetItems = assets.map(a => {
         const aKey  = a.assetKey ?? a.AssetKey ?? null
         const aName = a.assetName ?? a.AssetName ?? ''
         const match = normBots.find(nb =>
-          (aKey && nb.assetKey === aKey) ||
-          (!aKey && nb.assetName === aName)
+          (aKey && nb.assetKey === aKey) || (!aKey && nb.assetName === aName)
         )
         return {
           assetKey:     aKey,
@@ -1144,7 +1202,6 @@ export default function Batches({ onTopbarUpdate }) {
         }
       })
 
-      // Fresh counts from header (most authoritative)
       const freshWithCust = header?.withCustomerCount ?? header?.WithCustomerCount ?? batch.withCust ?? 0
       const freshReturned = header?.returnedCount     ?? header?.ReturnedCount     ?? batch.returned ?? 0
       const freshTotal    = header?.totalBottles      ?? header?.TotalBottles      ?? batch.qty      ?? 0
@@ -1161,7 +1218,6 @@ export default function Batches({ onTopbarUpdate }) {
         orderDate:      (header?.orderPlacedDate ?? header?.OrderPlacedDate) || batch.orderDate      || null,
       }
 
-      // Push bottles into local state for detail modal bottle-level display
       if (normBots.length > 0) {
         setBottles(prev => {
           const ids = new Set(normBots.map(b => b.id))
@@ -1169,7 +1225,6 @@ export default function Batches({ onTopbarUpdate }) {
         })
       }
 
-      // Update batch in list so asset count column updates immediately
       setBatches(prev => prev.map(b => b.id === batch.id
         ? { ...b, assetItems, assetCount: assetItems.length, qty: freshTotal, withCust: freshWithCust, returned: freshReturned }
         : b
@@ -1182,24 +1237,21 @@ export default function Batches({ onTopbarUpdate }) {
     }
   }
 
-  // ── Print labels — fetch from API ────────────────────────────────────
   async function handlePrint(batch) {
     try {
       const res = await getLabelsByTrackerId(batch._apiId)
-      // LabelPrint component expects `bottles` in the local shape; map API labels
       const labelBottles = (res?.data || []).map((l, i) => ({
-        id:             l.BottleCode      ?? l.bottleCode,
+        id:             l.BottleCode     ?? l.bottleCode,
         batchId:        batch.id,
-        status:         l.Status          ?? l.status,
-        assetName:      l.AssetName       ?? l.assetName       ?? '',
-        serialNumber:   l.SerialNumber    ?? l.serialNumber    ?? '',
-        dispatchedDate: l.DispatchedDate  ?? l.dispatchedDate  ?? null,
+        status:         l.Status         ?? l.status,
+        assetName:      l.AssetName      ?? l.assetName      ?? '',
+        serialNumber:   l.SerialNumber   ?? l.serialNumber   ?? '',
+        dispatchedDate: l.DispatchedDate ?? l.dispatchedDate ?? null,
         bottleNum:      i + 1,
       }))
       setPrintBatch(batch)
       setPrintLabels(labelBottles)
     } catch {
-      // Fallback: use local bottles if API fails
       setPrintBatch(batch)
       setPrintLabels(bottles.filter(b => b.batchId === batch.id))
     }
@@ -1216,25 +1268,35 @@ export default function Batches({ onTopbarUpdate }) {
           <div className="page-header-sub">Lifecycle: Order Placed → Dispatched → In Transit → Delivered · Click stage to advance</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setShowScan(p => !p)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:'#fff', border:`1.5px solid #1A1A31`, borderRadius:8, color:'#1A1A31', fontWeight:700, fontSize:12.5, cursor:'pointer' }}>
+          <button
+            onClick={() => setShowScan(p => !p)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#fff', border: '1.5px solid #1A1A31', borderRadius: 8, color: '#1A1A31', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+          >
             <ScanLine size={13} strokeWidth={2} /> {showScan ? 'Hide' : 'Show'} Scanner
           </button>
-          <button onClick={() => setShowCreate(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:'#FF4717', border:'1.5px solid #FF4717', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer' }}>
+          <button
+            onClick={() => setShowCreate(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: '#FF4717', border: '1.5px solid #FF4717', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+          >
             <Plus size={14} strokeWidth={2} /> New Batch
           </button>
         </div>
       </div>
 
-      {showScan && <div style={{ marginBottom: 20 }}><ScannerPanel bottles={bottles} setBottles={setBottles} batches={batches} onClose={() => setShowScan(false)} /></div>}
+      {showScan && (
+        <div style={{ marginBottom: 20 }}>
+          <ScannerPanel bottles={bottles} setBottles={setBottles} batches={batches} onClose={() => setShowScan(false)} />
+        </div>
+      )}
 
       {/* Summary pills */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 18 }}>
         {[
-          { value: counts.all,     label: 'Total Batches',   color: 'var(--accent)', bg: 'rgba(232,93,10,0.08)',   border: 'rgba(232,93,10,0.2)',   Icon: Layers       },
-          { value: counts.ordered, label: 'Order Placed',    color: '#6730c2',       bg: 'rgba(103,48,194,0.08)',  border: 'rgba(103,48,194,0.2)',  Icon: ShoppingCart },
-          { value: batches.filter(b => b.stage === 1).length, label: 'Dispatched',   color: '#1f5ec4',             bg: 'rgba(31,94,196,0.08)',      border: 'rgba(31,94,196,0.2)',   Icon: Truck        },
-          { value: counts.transit, label: 'In Transit',      color: '#c97a06',       bg: 'rgba(201,122,6,0.08)',   border: 'rgba(201,122,6,0.2)',   Icon: Navigation   },
-          { value: counts.done,    label: 'Delivered',       color: 'var(--green)',  bg: 'rgba(10,124,82,0.08)',   border: 'rgba(10,124,82,0.2)',   Icon: MapPin       },
+          { value: counts.all,                                        label: 'Total Batches', color: 'var(--accent)', bg: 'rgba(232,93,10,0.08)',  border: 'rgba(232,93,10,0.2)',  Icon: Layers       },
+          { value: counts.ordered,                                    label: 'Order Placed',  color: '#6730c2',       bg: 'rgba(103,48,194,0.08)', border: 'rgba(103,48,194,0.2)', Icon: ShoppingCart },
+          { value: batches.filter(b => b.stage === 1).length,        label: 'Dispatched',    color: '#1f5ec4',       bg: 'rgba(31,94,196,0.08)',  border: 'rgba(31,94,196,0.2)',  Icon: Truck        },
+          { value: counts.transit,                                    label: 'In Transit',    color: '#c97a06',       bg: 'rgba(201,122,6,0.08)',  border: 'rgba(201,122,6,0.2)',  Icon: Navigation   },
+          { value: counts.done,                                       label: 'Delivered',     color: 'var(--green)',  bg: 'rgba(10,124,82,0.08)',  border: 'rgba(10,124,82,0.2)',  Icon: MapPin       },
         ].map(({ value, label, color, bg, border, Icon }) => (
           <div key={label} style={{ flex: '1 1 110px', background: '#fff', border: `1px solid ${border}`, borderRadius: 14, padding: '14px 16px', position: 'relative', overflow: 'hidden', boxShadow: '0 1px 4px rgba(14,17,23,0.05)' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: '14px 14px 0 0' }} />
@@ -1250,11 +1312,14 @@ export default function Batches({ onTopbarUpdate }) {
 
       {/* Search + Tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 220px', minWidth: 200 }}><SearchBar value={search} onChange={setSearch} placeholder="Search batch ID or customer…" /></div>
+        <div style={{ flex: '1 1 220px', minWidth: 200 }}>
+          <SearchBar value={search} onChange={setSearch} placeholder="Search batch ID or customer…" />
+        </div>
         <div className="tab-bar">
           {TABS.map(t => (
             <button key={t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>
-              {t.label}<span className={tab === t.key ? 'tab-count' : 'tab-count-inactive'}>{counts[t.key] ?? batches.length}</span>
+              {t.label}
+              <span className={tab === t.key ? 'tab-count' : 'tab-count-inactive'}>{counts[t.key] ?? batches.length}</span>
             </button>
           ))}
         </div>
@@ -1263,23 +1328,30 @@ export default function Batches({ onTopbarUpdate }) {
       {/* Table */}
       <div className="table-wrap">
         <table>
-          <thead><tr>
-            <TH label="Batch ID"    sk="id" />
-            <TH label="Customer"    sk="customer" />
-            <th>Lifecycle Stage</th>
-            <th>Assets</th>
-            <th title="Total bottles">Total</th>
-            <th title="With customer">With Cust.</th>
-            <th title="Returned to lab">Returned</th>
-            <th>Return %</th>
-            <TH label="Order Date"  sk="orderDate" />
-            <TH label="Days"        sk="orderDate" />
-            <th>Actions</th>
-          </tr></thead>
+          <thead>
+            <tr>
+              <TH label="Batch ID"   sk="id" />
+              <TH label="Customer"   sk="customer" />
+              <th>Lifecycle Stage</th>
+              <th>Assets</th>
+              <th title="Total bottles">Total</th>
+              <th title="With customer">With Cust.</th>
+              <th title="Returned to lab">Returned</th>
+              <th>Return %</th>
+              <TH label="Order Date" sk="orderDate" />
+              <TH label="Days"       sk="orderDate" />
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
-            {loading && <tr><td colSpan={11} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>Loading batches…</td></tr>}
+            {loading && (
+              <tr>
+                <td colSpan={11} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                  Loading batches…
+                </td>
+              </tr>
+            )}
             {!loading && paged.map(b => {
-              // Use API-supplied counts directly — local bottles[] is not pre-loaded on this page
               const total    = b.qty      || 0
               const withCust = b.withCust ?? 0
               const returned = b.returned ?? 0
@@ -1318,26 +1390,32 @@ export default function Batches({ onTopbarUpdate }) {
                   <td><span style={{ fontSize: 10.5, fontFamily: 'var(--font-mono)', color: days > 30 ? 'var(--red)' : 'var(--text-muted)' }}>{days}d</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, background:'#fff', border:'1.5px solid #1A1A31', borderRadius:6, cursor:'pointer', color:'#1A1A31' }} title="View Details" onClick={() => handleView(b)}><Icons.Eye /></button>
-                      <button style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, background:'#fff', border:'1.5px solid #FF4717', borderRadius:6, cursor:'pointer', color:'#FF4717' }} title="Print Labels" onClick={() => handlePrint(b)}><Printer size={12} strokeWidth={2} /></button>
+                      <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: '#fff', border: '1.5px solid #1A1A31', borderRadius: 6, cursor: 'pointer', color: '#1A1A31' }} title="View Details" onClick={() => handleView(b)}>
+                        <Icons.Eye />
+                      </button>
+                      <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, background: '#fff', border: '1.5px solid #FF4717', borderRadius: 6, cursor: 'pointer', color: '#FF4717' }} title="Print Labels" onClick={() => handlePrint(b)}>
+                        <Printer size={12} strokeWidth={2} />
+                      </button>
                     </div>
                   </td>
                 </tr>
               )
             })}
             {!loading && paged.length === 0 && (
-              <tr><td colSpan={11} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)', fontSize: 11.5 }}>
-                No batches found{search ? ` matching "${search}"` : ''}
-              </td></tr>
+              <tr>
+                <td colSpan={11} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)', fontSize: 11.5 }}>
+                  No batches found{search ? ` matching "${search}"` : ''}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
         <Pagination page={page} totalPages={totalPages} onPage={setPage} total={totalCount} pageSize={pageSize} onPageSizeChange={setPageSize} />
       </div>
 
-      {showCreate && <Modal open onClose={() => setShowCreate(false)} title="Create New Batch" large><BatchForm onSave={createBatch} onClose={() => setShowCreate(false)} /></Modal>}
-      {viewBatch  && <BatchDetailModal batch={viewBatch} bottles={bottles} loading={viewLoading} onClose={() => setViewBatch(null)} onAdvanceStage={advanceStage} onMarkAllReturned={markAllReturned} />}
-      {printBatch && printLabels && <LabelPrint batch={printBatch} bottles={printLabels} onClose={() => { setPrintBatch(null); setPrintLabels(null) }} />}
+      {showCreate  && <Modal open onClose={() => setShowCreate(false)} title="Create New Batch" large><BatchForm onSave={createBatch} onClose={() => setShowCreate(false)} /></Modal>}
+      {viewBatch   && <BatchDetailModal batch={viewBatch} bottles={bottles} loading={viewLoading} onClose={() => setViewBatch(null)} onAdvanceStage={advanceStage} onMarkAllReturned={markAllReturned} />}
+      {printBatch  && printLabels && <LabelPrint batch={printBatch} bottles={printLabels} onClose={() => { setPrintBatch(null); setPrintLabels(null) }} />}
     </div>
   )
 }
