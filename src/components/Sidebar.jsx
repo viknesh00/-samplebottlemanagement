@@ -72,13 +72,13 @@ export default function Sidebar({ alertCount }) {
       </nav>
 
       {/* System Status */}
-      <div className="sidebar-status">
+      {/* <div className="sidebar-status">
         <div className="status-label">System Status</div>
         <div className="status-row">
           <span className="status-dot"></span>
           <span className="status-text">Online · v2.0.0</span>
         </div>
-      </div>
+      </div> */}
 
       {/* User card + sign out */}
       <div className="sidebar-footer">
