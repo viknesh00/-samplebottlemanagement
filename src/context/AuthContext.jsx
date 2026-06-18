@@ -61,10 +61,13 @@ export function AuthProvider({ children }) {
         const { data } = res
 
         // ── Role gate: only VPS Admin may access LabTrack ─────────────────
-        if (data.userRole !== ALLOWED_ROLE) {
+        const isAllowed =
+          data.userType === ALLOWED_ROLE || data.userRole === ALLOWED_ROLE
+
+        if (!isAllowed) {
           setError(`Access denied. Only ${ALLOWED_ROLE} accounts can access VPS LabTrack. Please contact your VPS Admin.`)
           setLoading(false)
-          return { success: false, accessDenied: true }
+          return { success: false, accessDenied: true }  // also fixed the syntax error here
         }
 
         const assetTypes   = []
